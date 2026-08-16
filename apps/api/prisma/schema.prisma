@@ -1,0 +1,471 @@
+// Mavens Chess Club — Prisma schema
+// Provider: MySQL (matches the Docker Compose mysql:8.4 service)
+//
+// Run `npx prisma migrate dev --name init` after dropping this into
+// apps/api/prisma/schema.prisma to generate the first migration.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// ─────────────────────────────────────────────────────────────
+// Identity & roles
+// ─────────────────────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  COACH
+  STUDENT
+  PARENT
+}
+
+/// Every login belongs to exactly one User. Role-specific data lives in the
+/// linked profile table (CoachProfile / StudentProfile / ParentProfile).
+/// Amwai is modeled as role = ADMIN with isCoach = true, so he shows up in
+/// coach rosters and can log sessions like any other coach.
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  phone        String?  @unique
+  passwordHash String
+  role         Role
+  isCoach      Boolean  @default(false)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  coachProfile   CoachProfile?
+  studentProfile StudentProfile?
+  parentProfile  ParentProfile?
+  notifications  Notification[]
+  auditLogs      AuditLog[]
+
+  @@index([role])
+}
+
+model CoachProfile {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bio       String?  @db.Text
+  specialty String?
+  createdAt DateTime @default(now())
+
+  studentLinks      CoachStudent[]
+  sessions          Session[]
+  lessonPlans       LessonPlan[]
+  puzzleSets        PuzzleSet[]
+  gradedSubmissions PuzzleSubmission[]
+  coachNotes        CoachNote[]
+  reviewedSheets    RecordingSheet[]     @relation("ReviewingCoach")
+}
+
+model StudentProfile {
+  id            String    @id @default(uuid())
+  userId        String    @unique
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName     String
+  lastName      String
+  dateOfBirth   DateTime?
+  currentRating Int?
+  joinedAt      DateTime  @default(now())
+
+  parentLinks      ParentStudent[]
+  coachLinks       CoachStudent[]
+  attendance       SessionAttendance[]
+  puzzleAssignments PuzzleAssignment[]
+  recordingSheets  RecordingSheet[]
+  subscriptions    Subscription[]
+  payments         Payment[]
+  tournamentRegs   TournamentRegistration[]
+  coachNotes       CoachNote[]
+  badges           StudentBadge[]
+
+  @@index([lastName, firstName])
+}
+
+model ParentProfile {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName String
+  lastName  String
+  createdAt DateTime @default(now())
+
+  studentLinks ParentStudent[]
+  orders       Order[]
+}
+
+/// Join table — supports multiple children per parent and,
+/// in principle, multiple guardians per student.
+model ParentStudent {
+  parentId  String
+  studentId String
+  parent    ParentProfile  @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@id([parentId, studentId])
+}
+
+/// Join table — a student's assigned coach(es). Kept many-to-many so a
+/// student can move between coaches without losing history.
+model CoachStudent {
+  coachId    String
+  studentId  String
+  coach      CoachProfile   @relation(fields: [coachId], references: [id], onDelete: Cascade)
+  student    StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  assignedAt DateTime       @default(now())
+  isPrimary  Boolean        @default(true)
+
+  @@id([coachId, studentId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Coaching: sessions, lesson plans, puzzles, recording sheets
+// ─────────────────────────────────────────────────────────────
+
+model Session {
+  id        String   @id @default(uuid())
+  coachId   String
+  coach     CoachProfile @relation(fields: [coachId], references: [id])
+  groupName String?
+  date      DateTime
+  topic     String
+  notes     String?  @db.Text
+
+  lessonPlanId String?
+  lessonPlan   LessonPlan? @relation(fields: [lessonPlanId], references: [id])
+
+  attendance SessionAttendance[]
+
+  @@index([coachId, date])
+}
+
+model SessionAttendance {
+  id        String         @id @default(uuid())
+  sessionId String
+  studentId String
+  session   Session        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  present   Boolean        @default(true)
+
+  @@unique([sessionId, studentId])
+}
+
+model LessonPlan {
+  id          String   @id @default(uuid())
+  coachId     String
+  coach       CoachProfile @relation(fields: [coachId], references: [id])
+  title       String
+  objectives  String?  @db.Text
+  materialUrl String?
+  difficulty  String?
+  createdAt   DateTime @default(now())
+
+  sessions Session[]
+}
+
+enum PuzzleStatus {
+  NEW
+  SUBMITTED
+  GRADED
+}
+
+model PuzzleSet {
+  id          String   @id @default(uuid())
+  coachId     String
+  coach       CoachProfile @relation(fields: [coachId], references: [id])
+  title       String
+  description String?  @db.Text
+  difficulty  String?
+  createdAt   DateTime @default(now())
+
+  assignments PuzzleAssignment[]
+}
+
+model PuzzleAssignment {
+  id          String       @id @default(uuid())
+  puzzleSetId String
+  puzzleSet   PuzzleSet    @relation(fields: [puzzleSetId], references: [id])
+  studentId   String
+  student     StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  dueDate     DateTime?
+  assignedAt  DateTime     @default(now())
+  status      PuzzleStatus @default(NEW)
+
+  submission PuzzleSubmission?
+
+  @@index([studentId, status])
+}
+
+model PuzzleSubmission {
+  id           String           @id @default(uuid())
+  assignmentId String           @unique
+  assignment   PuzzleAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  submittedAt  DateTime         @default(now())
+  score        Int?
+  feedback     String?          @db.Text
+  gradedById   String?
+  gradedBy     CoachProfile?    @relation(fields: [gradedById], references: [id])
+  gradedAt     DateTime?
+}
+
+model RecordingSheet {
+  id             String         @id @default(uuid())
+  studentId      String
+  student        StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  imageUrl       String
+  uploadedAt     DateTime       @default(now())
+  coachComment   String?        @db.Text
+  reviewedById   String?
+  reviewedBy     CoachProfile?  @relation("ReviewingCoach", fields: [reviewedById], references: [id])
+  reviewedAt     DateTime?
+}
+
+/// Private coach observations. Visible to Admin by default; not surfaced
+/// to parents unless explicitly shared (handled at the API layer).
+model CoachNote {
+  id        String         @id @default(uuid())
+  coachId   String
+  coach     CoachProfile   @relation(fields: [coachId], references: [id])
+  studentId String
+  student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  note      String         @db.Text
+  createdAt DateTime       @default(now())
+}
+
+// ─────────────────────────────────────────────────────────────
+// Tournaments
+// ─────────────────────────────────────────────────────────────
+
+model Tournament {
+  id                  String   @id @default(uuid())
+  name                String
+  date                DateTime
+  venue               String
+  feeAmount            Decimal  @db.Decimal(10, 2)
+  capacity            Int?
+  registrationDeadline DateTime?
+  createdAt           DateTime @default(now())
+
+  registrations TournamentRegistration[]
+}
+
+model TournamentRegistration {
+  id           String         @id @default(uuid())
+  tournamentId String
+  tournament   Tournament     @relation(fields: [tournamentId], references: [id])
+  studentId    String
+  student      StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  registeredAt DateTime       @default(now())
+  result       String?
+  paymentId    String?        @unique
+  payment      Payment?       @relation(fields: [paymentId], references: [id])
+
+  @@unique([tournamentId, studentId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Subscriptions & payments (M-Pesa)
+// ─────────────────────────────────────────────────────────────
+
+enum SubscriptionStatus {
+  ACTIVE
+  OVERDUE
+  CANCELLED
+}
+
+model SubscriptionPlan {
+  id            String  @id @default(uuid())
+  name          String
+  amount        Decimal @db.Decimal(10, 2)
+  billingCycle  String  @default("MONTHLY")
+  isActive      Boolean @default(true)
+
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id                 String             @id @default(uuid())
+  studentId          String
+  student            StudentProfile     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  planId             String
+  plan               SubscriptionPlan   @relation(fields: [planId], references: [id])
+  status             SubscriptionStatus @default(ACTIVE)
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+
+  payments Payment[]
+
+  @@index([studentId, status])
+}
+
+enum PaymentType {
+  SUBSCRIPTION
+  TOURNAMENT
+  MERCHANDISE
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
+enum PaymentMethod {
+  MPESA
+  CASH
+  OTHER
+}
+
+model Payment {
+  id             String        @id @default(uuid())
+  studentId      String?
+  student        StudentProfile? @relation(fields: [studentId], references: [id])
+  subscriptionId String?
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
+  orderId        String?       @unique
+  order          Order?        @relation(fields: [orderId], references: [id])
+  type           PaymentType
+  status         PaymentStatus @default(PENDING)
+  method         PaymentMethod @default(MPESA)
+  amount         Decimal       @db.Decimal(10, 2)
+  createdAt      DateTime      @default(now())
+  paidAt         DateTime?
+
+  mpesaTransaction   MpesaTransaction?
+  tournamentRegistration TournamentRegistration?
+
+  @@index([status])
+}
+
+/// One row per STK push attempt. `payment` stays PENDING until the Daraja
+/// callback lands here and flips it to PAID or FAILED.
+model MpesaTransaction {
+  id                 String   @id @default(uuid())
+  paymentId          String   @unique
+  payment            Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  phoneNumber        String
+  checkoutRequestId  String   @unique
+  merchantRequestId  String
+  resultCode         Int?
+  resultDesc         String?
+  mpesaReceiptNumber String?
+  rawCallback        Json?
+  createdAt          DateTime @default(now())
+}
+
+// ─────────────────────────────────────────────────────────────
+// Merchandise
+// ─────────────────────────────────────────────────────────────
+
+model MerchandiseItem {
+  id            String   @id @default(uuid())
+  name          String
+  description   String?  @db.Text
+  price         Decimal  @db.Decimal(10, 2)
+  sizeOptions   String?  // comma-separated, e.g. "S,M,L,XL"
+  stockQuantity Int      @default(0)
+  imageUrl      String?
+  isActive      Boolean  @default(true)
+
+  orderItems OrderItem[]
+}
+
+enum OrderStatus {
+  PENDING
+  FULFILLED
+  CANCELLED
+}
+
+model Order {
+  id          String      @id @default(uuid())
+  parentId    String
+  parent      ParentProfile @relation(fields: [parentId], references: [id])
+  status      OrderStatus @default(PENDING)
+  totalAmount Decimal     @db.Decimal(10, 2)
+  createdAt   DateTime    @default(now())
+
+  items   OrderItem[]
+  payment Payment?
+}
+
+model OrderItem {
+  id                String          @id @default(uuid())
+  orderId           String
+  order             Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  merchandiseItemId String
+  merchandiseItem   MerchandiseItem @relation(fields: [merchandiseItemId], references: [id])
+  quantity          Int
+  size              String?
+  unitPrice         Decimal         @db.Decimal(10, 2)
+}
+
+// ─────────────────────────────────────────────────────────────
+// Gamification
+// ─────────────────────────────────────────────────────────────
+
+model Badge {
+  id       String  @id @default(uuid())
+  name     String
+  icon     String
+  criteria String?
+
+  studentBadges StudentBadge[]
+}
+
+model StudentBadge {
+  studentId String
+  badgeId   String
+  student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  badge     Badge          @relation(fields: [badgeId], references: [id])
+  earnedAt  DateTime       @default(now())
+
+  @@id([studentId, badgeId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Notifications & audit
+// ─────────────────────────────────────────────────────────────
+
+enum NotificationChannel {
+  SMS
+  WHATSAPP
+  EMAIL
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+model Notification {
+  id        String              @id @default(uuid())
+  userId    String
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel   NotificationChannel
+  message   String              @db.Text
+  status    NotificationStatus  @default(PENDING)
+  sentAt    DateTime?
+  createdAt DateTime            @default(now())
+}
+
+/// Records who did what to which record — used to resolve payment or
+/// grading disputes ("who marked this paid on the 12th?").
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  action     String
+  entityType String
+  entityId   String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+}
