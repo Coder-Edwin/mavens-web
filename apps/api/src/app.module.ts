@@ -7,6 +7,7 @@ import { SessionsModule } from './modules/sessions/sessions.module';
 import { PuzzlesModule } from './modules/puzzles/puzzles.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { TournamentsModule } from './modules/tournaments/tournaments.module';
+import { MerchandiseModule } from './modules/merchandise/merchandise.module';
 
 @Module({
   imports: [
@@ -17,7 +18,8 @@ import { TournamentsModule } from './modules/tournaments/tournaments.module';
     SessionsModule,
     PuzzlesModule,
     PaymentsModule,
-    TournamentsModule
+    TournamentsModule,
+    MerchandiseModule
   ]
 })
 export class AppModule {}
