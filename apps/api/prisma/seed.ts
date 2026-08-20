@@ -7,7 +7,7 @@ async function main() {
   const adapter = new PrismaMariaDb(process.env.DATABASE_URL!);
   const prisma = new PrismaClient({ adapter });
 
-  // CHANGE THIS PASSWORD after your first real login.
+  // ---------- Admin/coach ----------
   const passwordHash = await bcrypt.hash('changeme123', 10);
 
   const amwai = await prisma.user.upsert({
@@ -25,9 +25,72 @@ async function main() {
       }
     }
   });
-
   // eslint-disable-next-line no-console
   console.log(`Seeded admin/coach account: ${amwai.email} (password: changeme123)`);
+
+  // ---------- Subscription plan ----------
+  const existingPlan = await prisma.subscriptionPlan.findFirst({ where: { isActive: true } });
+  if (!existingPlan) {
+    const plan = await prisma.subscriptionPlan.create({
+      data: {
+        name: 'Monthly Coaching',
+        amount: 3500,
+        billingCycle: 'MONTHLY',
+        isActive: true
+      }
+    });
+    // eslint-disable-next-line no-console
+    console.log(`Seeded subscription plan: ${plan.name} (KES ${plan.amount}/month)`);
+  } else {
+    // eslint-disable-next-line no-console
+    console.log(`Subscription plan already exists: ${existingPlan.name}`);
+  }
+
+  // ---------- Parent, linked to Faith ----------
+  const parentPasswordHash = await bcrypt.hash('changeme123', 10);
+  const parentUser = await prisma.user.upsert({
+    where: { email: 'parent@example.com' },
+    update: {},
+    create: {
+      email: 'parent@example.com',
+      passwordHash: parentPasswordHash,
+      role: 'PARENT',
+      parentProfile: {
+        create: { firstName: 'Grace', lastName: 'Wambui' }
+      }
+    },
+    include: { parentProfile: true }
+  });
+  // eslint-disable-next-line no-console
+  console.log(`Seeded parent account: ${parentUser.email} (password: changeme123)`);
+
+  // Faith was created earlier through POST /students, not through this
+  // seed script — so we look her up by email rather than a hardcoded ID.
+  const faithUser = await prisma.user.findUnique({
+    where: { email: 'faith@example.com' },
+    include: { studentProfile: true }
+  });
+
+  if (faithUser?.studentProfile && parentUser.parentProfile) {
+    await prisma.parentStudent.upsert({
+      where: {
+        parentId_studentId: {
+          parentId: parentUser.parentProfile.id,
+          studentId: faithUser.studentProfile.id
+        }
+      },
+      update: {},
+      create: {
+        parentId: parentUser.parentProfile.id,
+        studentId: faithUser.studentProfile.id
+      }
+    });
+    // eslint-disable-next-line no-console
+    console.log(`Linked parent ${parentUser.email} to student ${faithUser.email}`);
+  } else {
+    // eslint-disable-next-line no-console
+    console.log('Skipped parent-student link: Faith not found yet (create her via POST /students first, then re-run this seed)');
+  }
 
   await prisma.$disconnect();
 }
