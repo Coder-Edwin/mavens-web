@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -11,7 +11,7 @@ import { CreateSessionDto } from './dto/create-session.dto';
 export class SessionsController {
   constructor(private readonly sessionsService: SessionsService) {}
 
-  // POST /api/v1/sessions — coach only (Amwai qualifies via isCoach, no need to list ADMIN)
+  // POST /api/v1/sessions — coach only
   @Post()
   @UseGuards(RolesGuard)
   @Roles('COACH')
@@ -19,12 +19,13 @@ export class SessionsController {
     return this.sessionsService.create(dto, user);
   }
 
-  // GET /api/v1/sessions — admin sees all, coach sees only their own
+  // GET /api/v1/sessions — admin sees all (or, with ?scope=own, just their
+  // own sessions if they're also a coach), coach sees only their own
   @Get()
   @UseGuards(RolesGuard)
   @Roles('ADMIN', 'COACH')
-  findAll(@CurrentUser() user: AuthenticatedUser) {
-    return this.sessionsService.findAll(user);
+  findAll(@CurrentUser() user: AuthenticatedUser, @Query('scope') scope?: string) {
+    return this.sessionsService.findAll(user, scope);
   }
 
   // GET /api/v1/sessions/:id — ownership enforced in the service

@@ -16,9 +16,6 @@ export class StudentsService {
       throw new ConflictException('A user with this email already exists');
     }
 
-    // Temporary password, returned once in this response so the admin can
-    // hand it to the student/parent directly. Nothing sends this by email
-    // yet — that's a notifications-module concern for later.
     const tempPassword = crypto.randomBytes(6).toString('hex');
     const passwordHash = await bcrypt.hash(tempPassword, 10);
 
@@ -49,11 +46,17 @@ export class StudentsService {
     };
   }
 
-  /// Admin sees everyone. A coach sees only students actually linked to
-  /// them via CoachStudent — this is the query-level version of the
-  /// ownership check; findOne() below is the single-record version.
-  async findAll(currentUser: AuthenticatedUser) {
-    if (currentUser.role === 'ADMIN') {
+  /// `scope` is a deliberate, explicit override: when the caller genuinely
+  /// IS a coach (isCoach: true) and asks for scope === 'own', the coach
+  /// branch runs even though their primary role is ADMIN. Without this,
+  /// role === 'ADMIN' always wins and an admin-who-is-also-a-coach can
+  /// never see just their OWN roster — exactly the bug that let Brian show
+  /// up in Amwai's "coach view" checklist even though Brian was never
+  /// assigned to him.
+  async findAll(currentUser: AuthenticatedUser, scope?: string) {
+    const wantsCoachView = scope === 'own' && currentUser.isCoach;
+
+    if (currentUser.role === 'ADMIN' && !wantsCoachView) {
       return this.prisma.studentProfile.findMany({
         orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }]
       });
@@ -67,6 +70,18 @@ export class StudentsService {
 
       return this.prisma.studentProfile.findMany({
         where: { coachLinks: { some: { coachId: coachProfile.id } } },
+        orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }]
+      });
+    }
+
+    if (currentUser.role === 'PARENT') {
+      const parentProfile = await this.prisma.parentProfile.findUnique({
+        where: { userId: currentUser.userId }
+      });
+      if (!parentProfile) return [];
+
+      return this.prisma.studentProfile.findMany({
+        where: { parentLinks: { some: { parentId: parentProfile.id } } },
         orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }]
       });
     }
@@ -107,10 +122,6 @@ export class StudentsService {
     });
   }
 
-  /// THE OWNERSHIP CHECK. RolesGuard already confirmed the caller's ROLE
-  /// (e.g. "this is a coach"). It cannot know whether they're THIS
-  /// student's coach — only a query against the join tables can answer
-  /// that. This is why the check lives here, in the service, not in a guard.
   private async assertCanAccess(
     student: {
       id: string;

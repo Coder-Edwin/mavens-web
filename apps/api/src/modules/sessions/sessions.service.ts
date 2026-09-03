@@ -20,9 +20,6 @@ export class SessionsService {
   async create(dto: CreateSessionDto, currentUser: AuthenticatedUser) {
     const coachProfile = await this.getCoachProfileOrThrow(currentUser);
 
-    // Ownership check on a WRITE, not just a read: a coach can only log
-    // attendance for students actually assigned to them via CoachStudent —
-    // never trust a client-supplied list of IDs without verifying it.
     const links = await this.prisma.coachStudent.findMany({
       where: { coachId: coachProfile.id, studentId: { in: dto.presentStudentIds } }
     });
@@ -49,8 +46,14 @@ export class SessionsService {
     });
   }
 
-  async findAll(currentUser: AuthenticatedUser) {
-    if (currentUser.role === 'ADMIN') {
+  /// Same fix as StudentsService.findAll: `scope=own` forces the coach
+  /// branch even for a user whose primary role is ADMIN, so Amwai's
+  /// "Coach" view genuinely shows only his own logged sessions instead of
+  /// every coach's sessions club-wide.
+  async findAll(currentUser: AuthenticatedUser, scope?: string) {
+    const wantsCoachView = scope === 'own' && currentUser.isCoach;
+
+    if (currentUser.role === 'ADMIN' && !wantsCoachView) {
       return this.prisma.session.findMany({
         orderBy: { date: 'desc' },
         include: {

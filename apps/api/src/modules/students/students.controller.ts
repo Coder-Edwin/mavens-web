@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -8,7 +8,7 @@ import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
 
 @Controller('students')
-@UseGuards(JwtAuthGuard) // every route here requires login; RolesGuard is added per-route below
+@UseGuards(JwtAuthGuard)
 export class StudentsController {
   constructor(private readonly studentsService: StudentsService) {}
 
@@ -20,12 +20,14 @@ export class StudentsController {
     return this.studentsService.create(dto);
   }
 
-  // GET /api/v1/students — admin sees everyone, coach sees only their own students
+  // GET /api/v1/students — admin sees everyone (or, with ?scope=own, just
+  // their own students if they're also a coach), coach sees their own,
+  // parent sees their own children
   @Get()
   @UseGuards(RolesGuard)
-  @Roles('ADMIN', 'COACH')
-  findAll(@CurrentUser() user: AuthenticatedUser) {
-    return this.studentsService.findAll(user);
+  @Roles('ADMIN', 'COACH', 'PARENT')
+  findAll(@CurrentUser() user: AuthenticatedUser, @Query('scope') scope?: string) {
+    return this.studentsService.findAll(user, scope);
   }
 
   // GET /api/v1/students/:id — any authenticated role; ownership enforced in the service

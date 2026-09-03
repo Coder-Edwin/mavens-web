@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -21,10 +21,11 @@ export class PuzzleAssignmentsController {
   }
 
   // GET /api/v1/puzzle-assignments — role-scoped inside the service
-  // (admin: all, coach: assigned by them, student: assigned to them)
+  // (admin: all, or ?scope=own for just their own if also a coach;
+  //  coach: assigned by them; student: assigned to them)
   @Get()
-  findAll(@CurrentUser() user: AuthenticatedUser) {
-    return this.puzzlesService.findAllAssignments(user);
+  findAll(@CurrentUser() user: AuthenticatedUser, @Query('scope') scope?: string) {
+    return this.puzzlesService.findAllAssignments(user, scope);
   }
 
   // GET /api/v1/puzzle-assignments/:id — ownership enforced in the service

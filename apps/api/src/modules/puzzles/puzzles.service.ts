@@ -29,8 +29,6 @@ export class PuzzlesService {
     return studentProfile;
   }
 
-  // ---------- Puzzle sets (the reusable content a coach builds once) ----------
-
   async createSet(dto: CreatePuzzleSetDto, currentUser: AuthenticatedUser) {
     const coachProfile = await this.getCoachProfileOrThrow(currentUser);
     return this.prisma.puzzleSet.create({
@@ -54,8 +52,6 @@ export class PuzzlesService {
     });
   }
 
-  // ---------- Assignments (a puzzle set handed to a specific student) ----------
-
   async assign(dto: CreatePuzzleAssignmentDto, currentUser: AuthenticatedUser) {
     const coachProfile = await this.getCoachProfileOrThrow(currentUser);
 
@@ -67,8 +63,6 @@ export class PuzzlesService {
       throw new ForbiddenException('You can only assign puzzle sets you created');
     }
 
-    // Same write-time ownership check as SessionsService: verify every
-    // student ID actually belongs to this coach before creating anything.
     const links = await this.prisma.coachStudent.findMany({
       where: { coachId: coachProfile.id, studentId: { in: dto.studentIds } }
     });
@@ -80,8 +74,6 @@ export class PuzzlesService {
       );
     }
 
-    // One PuzzleAssignment row per student, even for a group assignment —
-    // this is what makes "6 of 8 submitted" queries trivial later.
     return this.prisma.$transaction(
       dto.studentIds.map((studentId) =>
         this.prisma.puzzleAssignment.create({
@@ -95,8 +87,14 @@ export class PuzzlesService {
     );
   }
 
-  async findAllAssignments(currentUser: AuthenticatedUser) {
-    if (currentUser.role === 'ADMIN') {
+  /// Same fix as StudentsService/SessionsService: `scope=own` forces the
+  /// coach branch even for a primary-role ADMIN, so a coach-admin's
+  /// grading queue only ever shows assignments THEY assigned, not
+  /// every coach's assignments club-wide.
+  async findAllAssignments(currentUser: AuthenticatedUser, scope?: string) {
+    const wantsCoachView = scope === 'own' && currentUser.isCoach;
+
+    if (currentUser.role === 'ADMIN' && !wantsCoachView) {
       return this.prisma.puzzleAssignment.findMany({
         include: {
           puzzleSet: true,
@@ -157,8 +155,6 @@ export class PuzzlesService {
 
     throw new ForbiddenException('You do not have permission to view this assignment');
   }
-
-  // ---------- Submit (student) & grade (coach) — the two-actor lifecycle ----------
 
   async submit(id: string, currentUser: AuthenticatedUser) {
     const studentProfile = await this.getStudentProfileOrThrow(currentUser);

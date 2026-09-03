@@ -1,25 +1,99 @@
+import { useEffect, useState } from 'react';
 import { Panel } from '@/components/ui/Primitives';
-import { puzzles, puzzlesSolvedByMonth, badges } from '@/data/mockData';
-import type { PuzzleStatus } from '@/types';
+import { api, ApiError } from '@/lib/api-client';
 
-const STATUS_LABEL: Record<PuzzleStatus, string> = {
-  new: 'NEW',
-  review: 'SUBMITTED',
-  graded: 'GRADED · 9/10'
+interface PuzzleSetSummary {
+  id: string;
+  title: string;
+  description?: string | null;
+  difficulty?: string | null;
+}
+
+interface Submission {
+  id: string;
+  score: number | null;
+  feedback: string | null;
+}
+
+interface Assignment {
+  id: string;
+  dueDate: string | null;
+  status: 'NEW' | 'SUBMITTED' | 'GRADED';
+  puzzleSet: PuzzleSetSummary;
+  submission: Submission | null;
+}
+
+const STATUS_LABEL: Record<Assignment['status'], string> = {
+  NEW: 'NEW',
+  SUBMITTED: 'SUBMITTED',
+  GRADED: 'GRADED'
+};
+
+// Maps our backend enum to the CSS classes already defined in tokens.css
+// (.status-pill.new / .review / .graded) — the class names predate the
+// SUBMITTED status name, so this mapping keeps the visual design intact.
+const STATUS_CLASS: Record<Assignment['status'], string> = {
+  NEW: 'new',
+  SUBMITTED: 'review',
+  GRADED: 'graded'
 };
 
 export function StudentDashboard() {
-  const maxSolved = Math.max(...puzzlesSolvedByMonth.map((m) => m.value));
+  const [assignments, setAssignments] = useState<Assignment[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [submittingId, setSubmittingId] = useState<string | null>(null);
+
+  async function loadAssignments() {
+    try {
+      const data = await api.get<Assignment[]>('/puzzle-assignments');
+      setAssignments(data);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not load your puzzles.');
+    }
+  }
+
+  useEffect(() => {
+    loadAssignments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function handleSubmit(id: string) {
+    setSubmittingId(id);
+    try {
+      await api.post(`/puzzle-assignments/${id}/submit`);
+      await loadAssignments(); // re-fetch so the card reflects the new SUBMITTED status
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not submit this puzzle.');
+    } finally {
+      setSubmittingId(null);
+    }
+  }
+
+  if (error) {
+    return (
+      <div className="panel" style={{ borderColor: 'var(--red)' }}>
+        <div className="panel-title">Something went wrong</div>
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>{error}</p>
+      </div>
+    );
+  }
+
+  if (!assignments) {
+    return <div className="page-sub">Loading your puzzles…</div>;
+  }
+
+  const newCount = assignments.filter((a) => a.status === 'NEW').length;
 
   return (
     <>
       <div className="streak-banner">
         <div>
-          <h2>Karibu, Faith 👋</h2>
-          <p>YOU'VE SOLVED PUZZLES 6 DAYS IN A ROW</p>
-        </div>
-        <div className="streak-num">
-          6<span>DAY STREAK</span>
+          <h2>Welcome back 👋</h2>
+          <p>
+            {newCount > 0
+              ? `YOU HAVE ${newCount} NEW PUZZLE${newCount === 1 ? '' : 'S'} TO SOLVE`
+              : "YOU'RE ALL CAUGHT UP"}
+          </p>
         </div>
       </div>
 
@@ -28,40 +102,45 @@ export function StudentDashboard() {
           Assigned Puzzles
         </div>
       </div>
-      <div className="grid-3">
-        {puzzles.map((p) => (
-          <div className="puzzle-card" key={p.id}>
-            <span className={`status-pill ${p.status}`}>{STATUS_LABEL[p.status]}</span>
-            <div className="puzzle-board" />
-            <div className="puzzle-title">{p.title}</div>
-            <div className="puzzle-tag">{p.tag}</div>
-          </div>
-        ))}
-      </div>
 
-      <div className="grid-2" style={{ marginTop: 16 }}>
-        <Panel title="Puzzles Solved — Last 6 Months">
-          <div className="chart">
-            {puzzlesSolvedByMonth.map((m) => (
-              <div className="bar-col" key={m.label}>
-                <div className="bar" style={{ height: `${(m.value / maxSolved) * 100}%` }} />
-                <div className="bar-label">{m.label.toUpperCase()}</div>
-              </div>
-            ))}
-          </div>
+      {assignments.length === 0 ? (
+        <Panel title="No puzzles yet">
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--muted)' }}>
+            Your coach hasn't assigned any puzzles yet. Check back after your next lesson.
+          </p>
         </Panel>
-
-        <Panel title="Badges">
-          <div className="badge-row">
-            {badges.map((b) => (
-              <div className="badge" key={b.id}>
-                <div className="badge-icon">{b.icon}</div>
-                <div className="badge-name">{b.name.toUpperCase()}</div>
+      ) : (
+        <div className="grid-3">
+          {assignments.map((a) => (
+            <div className="puzzle-card" key={a.id}>
+              <span className={`status-pill ${STATUS_CLASS[a.status]}`}>
+                {a.status === 'GRADED' && a.submission?.score != null
+                  ? `GRADED · ${a.submission.score}/100`
+                  : STATUS_LABEL[a.status]}
+              </span>
+              <div className="puzzle-board" />
+              <div className="puzzle-title">{a.puzzleSet.title}</div>
+              <div className="puzzle-tag">
+                {a.status === 'GRADED' && a.submission?.feedback
+                  ? `"${a.submission.feedback}"`
+                  : a.dueDate
+                    ? `Due ${new Date(a.dueDate).toLocaleDateString()}`
+                    : (a.puzzleSet.difficulty ?? 'No due date')}
               </div>
-            ))}
-          </div>
-        </Panel>
-      </div>
+              {a.status === 'NEW' && (
+                <button
+                  className="btn btn-gold btn-sm"
+                  style={{ marginTop: 10, width: '100%' }}
+                  disabled={submittingId === a.id}
+                  onClick={() => handleSubmit(a.id)}
+                >
+                  {submittingId === a.id ? 'Submitting…' : 'Mark as done'}
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </>
   );
 }

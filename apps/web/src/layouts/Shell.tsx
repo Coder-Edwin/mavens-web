@@ -1,14 +1,9 @@
 import type { ReactNode } from 'react';
-import type { Role } from '@/types';
+import type { AuthUser } from '@/lib/auth-context';
 
-const ROLE_LABELS: Record<Role, string> = {
-  admin: 'Amwai (Admin)',
-  coach: 'Coach Wanjiku',
-  student: 'Faith Wambui (Student)',
-  parent: 'Mrs. Kimani (Parent)'
-};
+type EffectiveRole = 'admin' | 'coach' | 'student' | 'parent';
 
-const NAV_ITEMS: Record<Role, { glyph: string; label: string }[]> = {
+const NAV_ITEMS: Record<EffectiveRole, { glyph: string; label: string }[]> = {
   admin: [
     { glyph: '♔', label: 'Overview' },
     { glyph: '♞', label: 'Coaches' },
@@ -41,7 +36,7 @@ const NAV_ITEMS: Record<Role, { glyph: string; label: string }[]> = {
   ]
 };
 
-const NAV_GROUP_LABEL: Record<Role, string> = {
+const NAV_GROUP_LABEL: Record<EffectiveRole, string> = {
   admin: 'Club',
   coach: 'Teaching',
   student: 'My Chess',
@@ -49,12 +44,19 @@ const NAV_GROUP_LABEL: Record<Role, string> = {
 };
 
 interface ShellProps {
-  role: Role;
-  onRoleChange: (role: Role) => void;
+  user: AuthUser;
+  viewAsCoach: boolean;
+  onToggleCoachView: () => void;
+  onLogout: () => void;
   children: ReactNode;
 }
 
-export function Shell({ role, onRoleChange, children }: ShellProps) {
+export function Shell({ user, viewAsCoach, onToggleCoachView, onLogout, children }: ShellProps) {
+  const effectiveRole: EffectiveRole =
+    user.role === 'ADMIN' && user.isCoach && viewAsCoach ? 'coach' : (user.role.toLowerCase() as EffectiveRole);
+
+  const showCoachToggle = user.role === 'ADMIN' && user.isCoach;
+
   return (
     <>
       <div className="topbar">
@@ -66,23 +68,24 @@ export function Shell({ role, onRoleChange, children }: ShellProps) {
           </div>
         </div>
 
-        <div className="role-switch">
-          {(Object.keys(NAV_ITEMS) as Role[]).map((r) => (
-            <button key={r} className={r === role ? 'active' : ''} onClick={() => onRoleChange(r)}>
-              {r.charAt(0).toUpperCase() + r.slice(1)}
+        {showCoachToggle && (
+          <div className="role-switch">
+            <button className={!viewAsCoach ? 'active' : ''} onClick={() => viewAsCoach && onToggleCoachView()}>
+              Admin
             </button>
-          ))}
-        </div>
+            <button className={viewAsCoach ? 'active' : ''} onClick={() => !viewAsCoach && onToggleCoachView()}>
+              Coach
+            </button>
+          </div>
+        )}
 
         <div className="topbar-right">
-          <div className="preview-tag">Previewing as {ROLE_LABELS[role]}</div>
-          <div className="avatar">
-            {ROLE_LABELS[role]
-              .split(' ')
-              .map((w) => w[0])
-              .slice(0, 2)
-              .join('')}
+          <div className="preview-tag" style={{ borderStyle: 'solid' }}>
+            {user.email}
           </div>
+          <button className="btn btn-ghost btn-sm" onClick={onLogout}>
+            Log out
+          </button>
         </div>
       </div>
 
@@ -94,8 +97,8 @@ export function Shell({ role, onRoleChange, children }: ShellProps) {
             ))}
           </div>
           <div className="nav-group">
-            <div className="nav-label">{NAV_GROUP_LABEL[role]}</div>
-            {NAV_ITEMS[role].map((item, i) => (
+            <div className="nav-label">{NAV_GROUP_LABEL[effectiveRole]}</div>
+            {NAV_ITEMS[effectiveRole].map((item, i) => (
               <div key={item.label} className={`nav-item ${i === 0 ? 'active' : ''}`}>
                 <span className="glyph">{item.glyph}</span>
                 {item.label}
