@@ -54,6 +54,9 @@ export interface GameSocketHandlers {
 export interface GameSocket {
   move: (m: { from: string; to: string; promotion?: string }) => void;
   resign: () => void;
+  /** Re-announce presence in the room — e.g. after joining a shared game,
+   *  so the other player receives a fresh `game:state`. */
+  rejoin: () => void;
   disconnect: () => void;
 }
 
@@ -76,6 +79,7 @@ export function connectGameSocket(gameId: string, handlers: GameSocketHandlers):
   return {
     move: (m) => socket.emit('game:move', { gameId, ...m }),
     resign: () => socket.emit('game:resign', { gameId }),
+    rejoin: () => socket.emit('game:join', { gameId }),
     disconnect: () => socket.disconnect()
   };
 }

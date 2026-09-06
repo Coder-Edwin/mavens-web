@@ -40,6 +40,7 @@ export function GamePage() {
   const [over, setOver] = useState<OverPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [boardWidth, setBoardWidth] = useState(440);
+  const [joining, setJoining] = useState(false);
 
   useLayoutEffect(() => {
     const measure = () => {
@@ -93,6 +94,22 @@ export function GamePage() {
     return () => live?.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  async function joinGame() {
+    if (!game) return;
+    setJoining(true);
+    setError(null);
+    try {
+      await gamesApi.join(game.id);
+      applyGame(await gamesApi.get(game.id));
+      // Re-announce in the room so the creator gets a fresh game:state.
+      socket.current?.rejoin();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not join this game.');
+    } finally {
+      setJoining(false);
+    }
+  }
 
   const myColor: 'white' | 'black' | null = !game
     ? null
@@ -188,7 +205,7 @@ export function GamePage() {
         </div>
 
         <div className="pl-side">
-          {game.status === 'PENDING' && (
+          {game.status === 'PENDING' && myColor && (
             <div className="pl-banner">
               <b>Waiting for an opponent.</b>
               <div style={{ marginTop: 6 }} className="pl-hint">
@@ -213,6 +230,24 @@ export function GamePage() {
                 </code>
                 <CopyLinkButton value={inviteUrl} />
               </div>
+            </div>
+          )}
+
+          {game.status === 'PENDING' && !myColor && (
+            <div className="pl-banner">
+              <b>This game is open.</b>
+              <div style={{ marginTop: 6 }} className="pl-hint">
+                {(game.white ?? game.black)?.email ?? 'A member'} is waiting for an opponent. Join to
+                take the {game.whiteId ? 'black' : 'white'} pieces.
+              </div>
+              <button
+                className="btn btn-gold btn-sm"
+                style={{ marginTop: 10 }}
+                onClick={joinGame}
+                disabled={joining}
+              >
+                {joining ? 'Joining…' : 'Join game'}
+              </button>
             </div>
           )}
 

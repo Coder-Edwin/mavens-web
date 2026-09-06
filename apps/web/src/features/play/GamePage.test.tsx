@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { GamePage } from './GamePage';
@@ -19,24 +19,37 @@ vi.mock('react-chessboard', () => ({
 }));
 
 const socketMoves: { from: string; to: string }[] = [];
+const socketCalls: string[] = [];
 let capturedHandlers: GameSocketHandlers = {};
 let getImpl: () => Promise<Game>;
+let joinImpl: (id: string) => Promise<Game>;
 
 vi.mock('@/lib/games', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/games')>();
   return {
     ...actual,
-    gamesApi: { get: () => getImpl(), list: vi.fn(), create: vi.fn(), join: vi.fn() },
+    gamesApi: {
+      get: () => getImpl(),
+      list: vi.fn(),
+      create: vi.fn(),
+      join: (id: string) => joinImpl(id)
+    },
     connectGameSocket: (_id: string, handlers: GameSocketHandlers) => {
       capturedHandlers = handlers;
       return {
         move: (m: { from: string; to: string }) => socketMoves.push(m),
-        resign: vi.fn(),
+        resign: () => socketCalls.push('resign'),
+        rejoin: () => socketCalls.push('rejoin'),
         disconnect: vi.fn()
       };
     }
   };
 });
+
+// JSDOM's navigator.clipboard is getter-only — mock it with a configurable
+// descriptor and restore afterwards.
+const writeText = vi.fn().mockResolvedValue(undefined);
+const originalClipboard = Object.getOwnPropertyDescriptor(Navigator.prototype, 'clipboard');
 
 const activeGame: Game = {
   id: 'g1',
@@ -65,8 +78,17 @@ function renderGame() {
 
 beforeEach(() => {
   socketMoves.length = 0;
+  socketCalls.length = 0;
   capturedHandlers = {};
   getImpl = async () => activeGame;
+  joinImpl = async () => activeGame;
+  writeText.mockClear();
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+});
+
+afterEach(() => {
+  delete (navigator as unknown as { clipboard?: unknown }).clipboard;
+  if (originalClipboard) Object.defineProperty(Navigator.prototype, 'clipboard', originalClipboard);
 });
 
 describe('GamePage', () => {
@@ -116,20 +138,52 @@ describe('GamePage', () => {
     expect(await screen.findByText(/waiting for an opponent/i)).toBeInTheDocument();
   });
 
-  it('offers a shareable game link', async () => {
+  it('offers a shareable game link to the waiting creator', async () => {
     getImpl = async () => ({ ...activeGame, status: 'PENDING', blackId: null, black: null });
-    const user = userEvent.setup();
     renderGame();
 
     // the invite URL is shown for the waiting player…
     expect(await screen.findByText(/\/app\/play\/g1$/)).toBeInTheDocument();
     // …and copies to the clipboard
-    await user.click(screen.getByRole('button', { name: /copy invite link/i }));
-    expect(await navigator.clipboard.readText()).toContain('/app/play/g1');
+    fireEvent.click(screen.getByRole('button', { name: /copy invite link/i }));
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining('/app/play/g1'));
   });
 
   it('always exposes a "copy game link" control in the header', async () => {
     renderGame();
     expect(await screen.findByRole('button', { name: /copy game link/i })).toBeInTheDocument();
+  });
+
+  it('lets a non-participant open a shared PENDING game and join it', async () => {
+    // current user is 'white-user'; this game belongs to someone else
+    const openGame: Game = {
+      ...activeGame,
+      status: 'PENDING',
+      whiteId: 'other-user',
+      white: { id: 'other-user', email: 'creator@x.com' },
+      blackId: null,
+      black: null
+    };
+    const joinedGame: Game = {
+      ...openGame,
+      status: 'ACTIVE',
+      blackId: 'white-user',
+      black: { id: 'white-user', email: 'w@x.com' }
+    };
+    getImpl = async () => openGame;
+    joinImpl = async () => {
+      // once joined, the server returns the ACTIVE game on the next GET
+      getImpl = async () => joinedGame;
+      return joinedGame;
+    };
+    const user = userEvent.setup();
+    renderGame();
+
+    await user.click(await screen.findByRole('button', { name: /join game/i }));
+
+    // joined -> board goes live and the socket re-announces presence
+    expect(await screen.findByRole('button', { name: /resign/i })).toBeInTheDocument();
+    expect(socketCalls).toContain('rejoin');
+    expect(screen.queryByRole('button', { name: /join game/i })).not.toBeInTheDocument();
   });
 });
