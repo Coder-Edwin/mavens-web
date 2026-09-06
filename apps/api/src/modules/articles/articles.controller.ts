@@ -21,11 +21,11 @@ import { UpdateArticleDto } from './dto/update-article.dto';
 export class ArticlesController {
   constructor(private readonly articlesService: ArticlesService) {}
 
-  // GET /api/v1/articles?limit=3 — PUBLIC, published posts only
+  // GET /api/v1/articles?limit=3 — PUBLIC, published posts only.
+  // The service validates the limit (positive integer, capped); junk is ignored.
   @Get()
   findPublished(@Query('limit') limit?: string) {
-    const parsed = limit ? Number(limit) : undefined;
-    return this.articlesService.findPublished(Number.isFinite(parsed) ? parsed : undefined);
+    return this.articlesService.findPublished(limit === undefined ? undefined : Number(limit));
   }
 
   // GET /api/v1/articles/admin — admin only, all posts incl. drafts.

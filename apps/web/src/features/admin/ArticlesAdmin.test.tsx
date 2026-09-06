@@ -95,6 +95,37 @@ describe('ArticlesAdmin', () => {
     expect(listAdmin).toHaveBeenCalledTimes(2); // initial + refresh
   });
 
+  it('clears the cover image on edit when the field is emptied', async () => {
+    listAdmin.mockReset().mockResolvedValue([
+      { ...rows[0], id: 'a9', title: 'Has Image', coverImageUrl: 'https://img.example/x.jpg' }
+    ]);
+    const user = userEvent.setup();
+    renderAdmin();
+    const table = await screen.findByRole('table');
+
+    const tr = within(table).getByText('Has Image').closest('tr')!;
+    await user.click(within(tr).getByRole('button', { name: /edit/i }));
+
+    await user.clear(screen.getByLabelText(/cover image url/i));
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
+
+    expect(update).toHaveBeenCalledWith('a9', expect.objectContaining({ coverImageUrl: null }));
+  });
+
+  it('omits the cover image on create when the field is blank', async () => {
+    const user = userEvent.setup();
+    renderAdmin();
+    await screen.findByRole('table');
+
+    await user.click(screen.getByRole('button', { name: /new article/i }));
+    await user.type(screen.getByLabelText(/title/i), 'No Image Post');
+    await user.type(screen.getByLabelText(/excerpt/i), 'x');
+    await user.type(screen.getByLabelText(/body/i), 'y');
+    await user.click(screen.getByRole('button', { name: /create article/i }));
+
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ coverImageUrl: undefined }));
+  });
+
   it('toggles publish state on an existing row', async () => {
     const user = userEvent.setup();
     renderAdmin();

@@ -72,14 +72,19 @@ export function ArticlesAdmin() {
     setSaving(true);
     setError(null);
     try {
-      const payload: ArticleInput = {
-        ...form,
-        coverImageUrl: form.coverImageUrl?.trim() ? form.coverImageUrl.trim() : undefined
-      };
+      const trimmedCover = form.coverImageUrl?.trim() || '';
       if (editingId) {
-        await articlesApi.update(editingId, payload);
+        // On edit, an empty field is an explicit "remove the image" (null);
+        // on create, an empty field is simply omitted.
+        await articlesApi.update(editingId, {
+          ...form,
+          coverImageUrl: trimmedCover ? trimmedCover : null
+        });
       } else {
-        await articlesApi.create(payload);
+        await articlesApi.create({
+          ...form,
+          coverImageUrl: trimmedCover ? trimmedCover : undefined
+        });
       }
       cancelEdit();
       await refresh();

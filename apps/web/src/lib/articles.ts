@@ -36,7 +36,8 @@ export interface ArticleInput {
   title: string;
   excerpt: string;
   body: string;
-  coverImageUrl?: string;
+  // string sets it, null clears it (on edit), undefined leaves it alone.
+  coverImageUrl?: string | null;
   status?: ArticleStatus;
 }
 

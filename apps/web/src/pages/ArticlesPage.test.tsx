@@ -47,10 +47,14 @@ describe('ArticlesPage', () => {
   });
 
   it('shows an error state when the request fails', async () => {
+    // The component logs the underlying failure — silence it so CI output stays clean.
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     impl = async () => {
       throw new ApiError(500, 'boom');
     };
     renderPage();
     expect(await screen.findByText(/could not load articles right now/i)).toBeInTheDocument();
+    expect(errSpy).toHaveBeenCalled();
+    errSpy.mockRestore();
   });
 });

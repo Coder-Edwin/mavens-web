@@ -17,6 +17,16 @@ export function slugify(input: string): string {
   return slug || 'article';
 }
 
+/// Cap on the public `?limit=` so a caller can't ask for an unbounded page.
+export const MAX_PUBLIC_LIMIT = 50;
+
+/// Accept only a positive integer; cap it at MAX_PUBLIC_LIMIT. Anything else
+/// (fractional, negative, zero, NaN, undefined) means "no limit".
+export function normalizeLimit(value: number | undefined): number | undefined {
+  if (value === undefined || !Number.isInteger(value) || value < 1) return undefined;
+  return Math.min(value, MAX_PUBLIC_LIMIT);
+}
+
 @Injectable()
 export class ArticlesService {
   constructor(private readonly prisma: PrismaService) {}
@@ -29,7 +39,7 @@ export class ArticlesService {
     return this.prisma.article.findMany({
       where: { status: 'PUBLISHED', publishedAt: { lte: new Date() } },
       orderBy: { publishedAt: 'desc' },
-      take: limit && limit > 0 ? limit : undefined,
+      take: normalizeLimit(limit),
       select: {
         id: true,
         slug: true,
@@ -108,7 +118,9 @@ export class ArticlesService {
         title: dto.title ?? undefined,
         excerpt: dto.excerpt ?? undefined,
         body: dto.body ?? undefined,
-        coverImageUrl: dto.coverImageUrl ?? undefined,
+        // Three states: omitted (undefined) leaves it untouched; an explicit
+        // null clears the cover image; a string sets it.
+        coverImageUrl: dto.coverImageUrl,
         status: dto.status ?? undefined,
         publishedAt
       }

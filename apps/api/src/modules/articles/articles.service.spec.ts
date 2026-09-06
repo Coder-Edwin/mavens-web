@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
-import { ArticlesService, slugify } from './articles.service';
+import { ArticlesService, slugify, normalizeLimit, MAX_PUBLIC_LIMIT } from './articles.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 
@@ -19,6 +19,30 @@ describe('slugify', () => {
 
   it('falls back to "article" when nothing usable remains', () => {
     expect(slugify('!!! ???')).toBe('article');
+  });
+});
+
+describe('normalizeLimit', () => {
+  it('passes a valid positive integer through unchanged', () => {
+    expect(normalizeLimit(3)).toBe(3);
+  });
+
+  it('ignores a fractional limit', () => {
+    expect(normalizeLimit(1.5)).toBeUndefined();
+  });
+
+  it('ignores a negative or zero limit', () => {
+    expect(normalizeLimit(-4)).toBeUndefined();
+    expect(normalizeLimit(0)).toBeUndefined();
+  });
+
+  it('ignores NaN and undefined', () => {
+    expect(normalizeLimit(Number('abc'))).toBeUndefined();
+    expect(normalizeLimit(undefined)).toBeUndefined();
+  });
+
+  it('caps an oversized limit at MAX_PUBLIC_LIMIT', () => {
+    expect(normalizeLimit(1000)).toBe(MAX_PUBLIC_LIMIT);
   });
 });
 
@@ -135,6 +159,30 @@ describe('ArticlesService', () => {
 
       expect(prisma.article.update.mock.calls[0][0].data).not.toHaveProperty('slug');
     });
+
+    it('clears the cover image when coverImageUrl is explicitly null', async () => {
+      prisma.article.findUnique.mockResolvedValue({ id: 'a1', slug: 's', publishedAt: null });
+
+      await service.update('a1', { coverImageUrl: null });
+
+      expect(prisma.article.update.mock.calls[0][0].data.coverImageUrl).toBeNull();
+    });
+
+    it('leaves the cover image untouched when coverImageUrl is omitted', async () => {
+      prisma.article.findUnique.mockResolvedValue({ id: 'a1', slug: 's', publishedAt: null });
+
+      await service.update('a1', { title: 'New title' });
+
+      expect(prisma.article.update.mock.calls[0][0].data.coverImageUrl).toBeUndefined();
+    });
+
+    it('sets the cover image when coverImageUrl is a string', async () => {
+      prisma.article.findUnique.mockResolvedValue({ id: 'a1', slug: 's', publishedAt: null });
+
+      await service.update('a1', { coverImageUrl: 'https://img.example/x.jpg' });
+
+      expect(prisma.article.update.mock.calls[0][0].data.coverImageUrl).toBe('https://img.example/x.jpg');
+    });
   });
 
   describe('remove', () => {
@@ -162,10 +210,18 @@ describe('ArticlesService', () => {
       expect(arg.take).toBe(3);
     });
 
-    it('findPublished ignores a non-positive limit', async () => {
+    it('findPublished ignores a non-positive or fractional limit', async () => {
       prisma.article.findMany.mockResolvedValue([]);
       await service.findPublished(0);
       expect(prisma.article.findMany.mock.calls[0][0].take).toBeUndefined();
+      await service.findPublished(2.7);
+      expect(prisma.article.findMany.mock.calls[1][0].take).toBeUndefined();
+    });
+
+    it('findPublished caps an oversized limit', async () => {
+      prisma.article.findMany.mockResolvedValue([]);
+      await service.findPublished(9999);
+      expect(prisma.article.findMany.mock.calls[0][0].take).toBe(MAX_PUBLIC_LIMIT);
     });
 
     it('findPublishedBySlug throws NotFoundException for an unknown or draft slug', async () => {
