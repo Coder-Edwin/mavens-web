@@ -172,7 +172,7 @@ describe('GamesService', () => {
 
       expect(res.move).toMatchObject({ san: 'e4', color: 'w' });
       const call = prisma.game.updateMany.mock.calls[0][0];
-      expect(call.where).toEqual({ id: 'g1', revision: 0 });
+      expect(call.where).toEqual({ id: 'g1', status: 'ACTIVE', revision: 0 });
       expect(call.data.pgn).toContain('1. e4');
       expect(call.data.revision).toEqual({ increment: 1 });
       expect(row!.revision).toBe(1);
@@ -186,6 +186,27 @@ describe('GamesService', () => {
         ConflictException
       );
       expect(row!.pgn).toBe(''); // nothing written
+    });
+
+    it('is rejected — not applied — when the opponent resigns while the move is in flight', async () => {
+      row = gameRow(); // ACTIVE, revision 0, white to move
+      const realUpdateMany = prisma.game.updateMany.getMockImplementation()!;
+      prisma.game.updateMany.mockImplementationOnce((a: unknown) => {
+        // opponent's resignation commits between our read and our write
+        row = gameRow({
+          status: 'FINISHED',
+          result: 'BLACK_WINS',
+          resultReason: 'resignation',
+          revision: 1
+        });
+        return realUpdateMany(a);
+      });
+
+      await expect(service.applyMove('g1', WHITE, { from: 'e2', to: 'e4' })).rejects.toThrow(
+        ConflictException
+      );
+      expect(row!.pgn).toBe(''); // the move never landed
+      expect(row!.result).toBe('BLACK_WINS'); // the resignation stands
     });
 
     it("rejects a move when it is not that player's turn", async () => {
@@ -242,10 +263,12 @@ describe('GamesService', () => {
         data: expect.objectContaining({
           status: 'FINISHED',
           result: 'BLACK_WINS',
-          resultReason: 'resignation'
+          resultReason: 'resignation',
+          revision: { increment: 1 }
         })
       });
       expect(g).toMatchObject({ status: 'FINISHED', result: 'BLACK_WINS' });
+      expect(row!.revision).toBe(1); // invalidates any move in flight on this position
     });
 
     it('returns the real result when a move finished the game first (no overwrite)', async () => {

@@ -165,11 +165,13 @@ export class GamesService {
 
     const { over } = inspectPosition(chess);
 
-    // Optimistic lock: only write if the game hasn't advanced since we read
-    // it. Two requests racing on the same position — one lands, the other
-    // gets a conflict and the caller resyncs from the authoritative state.
+    // Optimistic lock: only write if the game is still ACTIVE *and* at the
+    // revision we read. This also blocks an in-flight move from overwriting
+    // the position after the opponent has resigned (resign bumps revision,
+    // and moves the status off ACTIVE). On conflict the caller resyncs from
+    // the authoritative state.
     const written = await this.prisma.game.updateMany({
-      where: { id, revision: game.revision },
+      where: { id, status: 'ACTIVE', revision: game.revision },
       data: {
         fen: chess.fen(),
         pgn: chess.pgn(),
@@ -200,13 +202,15 @@ export class GamesService {
 
     // Conditional: if a move finished the game between the read and here,
     // count is 0 and get() below returns whatever result actually landed.
+    // Bumping revision invalidates any move that's in flight on this position.
     await this.prisma.game.updateMany({
       where: { id, status: 'ACTIVE' },
       data: {
         status: 'FINISHED',
         result: color === 'w' ? 'BLACK_WINS' : 'WHITE_WINS',
         resultReason: 'resignation',
-        endedAt: new Date()
+        endedAt: new Date(),
+        revision: { increment: 1 }
       }
     });
     return this.get(id);
