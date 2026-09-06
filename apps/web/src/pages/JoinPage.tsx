@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { MarketingHeader } from '@/components/marketing/MarketingHeader';
 import '@/styles/marketing.css';
 
 /**
@@ -10,19 +11,7 @@ import '@/styles/marketing.css';
 export function JoinPage() {
   return (
     <div className="mk">
-      <header className="mk-nav">
-        <div className="mk-container mk-nav-inner">
-          <Link to="/" className="brand" aria-label="Mavens Chess Club home">
-            <span className="brand-mark">♞</span>
-            <span className="brand-name">Mavens Chess Club</span>
-          </Link>
-          <div className="mk-nav-actions">
-            <Link to="/login" className="btn btn-ghost btn-sm">
-              Sign in
-            </Link>
-          </div>
-        </div>
-      </header>
+      <MarketingHeader />
 
       <section className="mk-subpage">
         <div className="mk-container">

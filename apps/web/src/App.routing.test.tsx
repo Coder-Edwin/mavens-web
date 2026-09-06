@@ -19,6 +19,22 @@ vi.mock('@/features/parent/ParentDashboard', () => ({
   ParentDashboard: () => <div>PARENT DASHBOARD</div>
 }));
 
+// Public + admin pages that fetch articles on mount — keep the network out.
+vi.mock('@/lib/articles', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/articles')>();
+  return {
+    ...actual,
+    articlesApi: {
+      ...actual.articlesApi,
+      listPublic: vi.fn().mockResolvedValue([]),
+      getBySlug: vi.fn().mockResolvedValue({
+        id: '1', slug: 'x', title: 'X', excerpt: 'x', body: 'x', coverImageUrl: null, publishedAt: null
+      }),
+      listAdmin: vi.fn().mockResolvedValue([])
+    }
+  };
+});
+
 function renderAt(path: string) {
   return render(
     <AuthProvider>
@@ -74,5 +90,22 @@ describe('AppRoutes', () => {
   it('sends unknown routes back to the landing page', async () => {
     renderAt('/nope/not/a/route');
     expect(await screen.findByRole('heading', { level: 1, name: /mavens chess club/i })).toBeInTheDocument();
+  });
+
+  it('serves the public articles index at /articles', async () => {
+    renderAt('/articles');
+    expect(await screen.findByRole('heading', { name: /articles & news/i })).toBeInTheDocument();
+  });
+
+  it('serves a public article at /articles/:slug', async () => {
+    renderAt('/articles/x');
+    expect(await screen.findByRole('heading', { level: 1, name: 'X' })).toBeInTheDocument();
+  });
+
+  it('renders the admin article manager at /app/articles for a signed-in admin', async () => {
+    seedSession('ADMIN');
+    renderAt('/app/articles');
+    expect(await screen.findByRole('button', { name: /new article/i })).toBeInTheDocument();
+    expect(screen.getByText('All articles')).toBeInTheDocument();
   });
 });

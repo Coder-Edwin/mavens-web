@@ -4,8 +4,11 @@ import { AuthProvider, useAuth } from '@/lib/auth-context';
 import { LoginScreen } from '@/features/auth/LoginScreen';
 import { LandingPage } from '@/pages/LandingPage';
 import { JoinPage } from '@/pages/JoinPage';
+import { ArticlesPage } from '@/pages/ArticlesPage';
+import { ArticlePage } from '@/pages/ArticlePage';
 import { Shell } from '@/layouts/Shell';
 import { AdminOverview } from '@/features/admin/AdminOverview';
+import { ArticlesAdmin } from '@/features/admin/ArticlesAdmin';
 import { CoachDashboard } from '@/features/coach/CoachDashboard';
 import { StudentDashboard } from '@/features/student/StudentDashboard';
 import { ParentDashboard } from '@/features/parent/ParentDashboard';
@@ -28,7 +31,13 @@ function AuthenticatedApp() {
       onToggleCoachView={() => setViewAsCoach((v) => !v)}
       onLogout={logout}
     >
-      {effectiveRole === 'admin' && <AdminOverview />}
+      {effectiveRole === 'admin' && (
+        <Routes>
+          <Route index element={<AdminOverview />} />
+          <Route path="articles" element={<ArticlesAdmin />} />
+          <Route path="*" element={<Navigate to="/app" replace />} />
+        </Routes>
+      )}
       {effectiveRole === 'coach' && <CoachDashboard />}
       {effectiveRole === 'student' && <StudentDashboard />}
       {effectiveRole === 'parent' && <ParentDashboard />}
@@ -38,8 +47,8 @@ function AuthenticatedApp() {
 
 /**
  * Route tree, split out from <App> so tests can mount it inside a
- * MemoryRouter. Public marketing routes ('/', '/join') are always
- * reachable; '/app' requires a session, '/login' bounces to '/app'
+ * MemoryRouter. Public marketing routes ('/', '/join', '/articles') are
+ * always reachable; '/app' requires a session, '/login' bounces to '/app'
  * once you have one.
  */
 export function AppRoutes() {
@@ -50,6 +59,8 @@ export function AppRoutes() {
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/join" element={<JoinPage />} />
+      <Route path="/articles" element={<ArticlesPage />} />
+      <Route path="/articles/:slug" element={<ArticlePage />} />
       <Route path="/login" element={user ? <Navigate to="/app" replace /> : <LoginScreen />} />
       <Route
         path="/app/*"

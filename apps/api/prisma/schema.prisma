@@ -43,6 +43,7 @@ model User {
   parentProfile  ParentProfile?
   notifications  Notification[]
   auditLogs      AuditLog[]
+  articles       Article[]
 
   @@index([role])
 }
@@ -468,4 +469,33 @@ model AuditLog {
   createdAt  DateTime @default(now())
 
   @@index([entityType, entityId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Articles / news — published by admin, read by the public
+// ─────────────────────────────────────────────────────────────
+
+enum ArticleStatus {
+  DRAFT
+  PUBLISHED
+}
+
+/// A news post or coaching article. Drafts are visible only to admins;
+/// PUBLISHED rows (with a publishedAt in the past) are served to the
+/// public landing page and /articles routes.
+model Article {
+  id          String        @id @default(uuid())
+  slug        String        @unique
+  title       String
+  excerpt     String        @db.Text
+  body        String        @db.Text
+  coverImageUrl String?
+  status      ArticleStatus @default(DRAFT)
+  publishedAt DateTime?
+  authorId    String?
+  author      User?         @relation(fields: [authorId], references: [id])
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([status, publishedAt])
 }

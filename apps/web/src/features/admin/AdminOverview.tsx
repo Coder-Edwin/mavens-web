@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { KpiCard, Panel, Chip } from '@/components/ui/Primitives';
 import { api, ApiError } from '@/lib/api-client';
 
@@ -95,6 +96,9 @@ export function AdminOverview() {
         <div>
           <div className="page-title">Club Overview</div>
         </div>
+        <Link to="/app/articles" className="btn btn-ghost btn-sm">
+          Manage articles
+        </Link>
       </div>
 
       <div className="kpi-row">

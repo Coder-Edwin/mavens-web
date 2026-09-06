@@ -1,16 +1,20 @@
 import type { ReactNode } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import type { AuthUser } from '@/lib/auth-context';
 
 type EffectiveRole = 'admin' | 'coach' | 'student' | 'parent';
 
-const NAV_ITEMS: Record<EffectiveRole, { glyph: string; label: string }[]> = {
+// `to` marks a nav item that's actually wired to a route; the rest are still
+// placeholders from the original single-page dashboard.
+const NAV_ITEMS: Record<EffectiveRole, { glyph: string; label: string; to?: string }[]> = {
   admin: [
-    { glyph: '♔', label: 'Overview' },
+    { glyph: '♔', label: 'Overview', to: '/app' },
     { glyph: '♞', label: 'Coaches' },
     { glyph: '♟', label: 'Students' },
     { glyph: '♜', label: 'Tournaments' },
     { glyph: '♛', label: 'Payments' },
     { glyph: '♝', label: 'Merchandise' },
+    { glyph: '♙', label: 'Articles', to: '/app/articles' },
     { glyph: '♖', label: 'Reports' }
   ],
   coach: [
@@ -56,6 +60,10 @@ export function Shell({ user, viewAsCoach, onToggleCoachView, onLogout, children
     user.role === 'ADMIN' && user.isCoach && viewAsCoach ? 'coach' : (user.role.toLowerCase() as EffectiveRole);
 
   const showCoachToggle = user.role === 'ADMIN' && user.isCoach;
+  const { pathname } = useLocation();
+  // "/app" is only active on an exact match; deeper routes ("/app/articles")
+  // match by prefix.
+  const isActive = (to: string) => (to === '/app' ? pathname === '/app' : pathname.startsWith(to));
 
   return (
     <>
@@ -98,12 +106,27 @@ export function Shell({ user, viewAsCoach, onToggleCoachView, onLogout, children
           </div>
           <div className="nav-group">
             <div className="nav-label">{NAV_GROUP_LABEL[effectiveRole]}</div>
-            {NAV_ITEMS[effectiveRole].map((item, i) => (
-              <div key={item.label} className={`nav-item ${i === 0 ? 'active' : ''}`}>
-                <span className="glyph">{item.glyph}</span>
-                {item.label}
-              </div>
-            ))}
+            {NAV_ITEMS[effectiveRole].map((item, i) => {
+              // Routed items light up by path. Roles whose nav isn't wired to
+              // routes yet keep the original "first item active" behaviour.
+              const anyRouted = NAV_ITEMS[effectiveRole].some((n) => n.to);
+              const active = item.to ? isActive(item.to) : !anyRouted && i === 0;
+              const inner = (
+                <>
+                  <span className="glyph">{item.glyph}</span>
+                  {item.label}
+                </>
+              );
+              return item.to ? (
+                <Link key={item.label} to={item.to} className={`nav-item ${active ? 'active' : ''}`}>
+                  {inner}
+                </Link>
+              ) : (
+                <div key={item.label} className={`nav-item ${active ? 'active' : ''}`}>
+                  {inner}
+                </div>
+              );
+            })}
           </div>
         </div>
 

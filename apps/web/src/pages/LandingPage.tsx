@@ -1,5 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { MarketingHeader } from '@/components/marketing/MarketingHeader';
+import { MarketingFooter } from '@/components/marketing/MarketingFooter';
+import { articlesApi, formatArticleDate, type ArticleSummary } from '@/lib/articles';
 import '@/styles/marketing.css';
 
 /**
@@ -12,15 +15,6 @@ import '@/styles/marketing.css';
  * `.mk-hero-art` / `.mk-portrait` / logo tiles when available.
  */
 
-const NAV_LINKS = [
-  { label: 'About', href: '#about' },
-  { label: 'Programs', href: '#programs' },
-  { label: 'Coaches', href: '#coaches' },
-  { label: 'Donate', href: '#donors' },
-  { label: 'Articles', href: '#articles' },
-  { label: 'Contact', href: '#contact' }
-];
-
 // PLACEHOLDER coaches — replace with real roster once the Coaches API is public.
 const COACHES = [
   { name: 'Coach — name pending', title: 'Junior development' },
@@ -28,69 +22,67 @@ const COACHES = [
   { name: 'Coach — name pending', title: 'Chess in Schools' }
 ];
 
-// PLACEHOLDER articles — becomes live data in the Articles/News feature.
-const SAMPLE_ARTICLES = [
-  {
-    date: 'Coming soon',
-    title: 'Club news and coaching notes will appear here',
-    excerpt:
-      'Once the Articles module ships, posts published from the admin dashboard show up in this section for parents, students and the public.'
-  },
-  {
-    date: 'Coming soon',
-    title: 'Tournament recaps',
-    excerpt: 'Results, standings and highlights from Mavens events and the schools league.'
-  },
-  {
-    date: 'Coming soon',
-    title: 'Learning the game',
-    excerpt: 'Short lessons and puzzles from our coaches for players building their fundamentals.'
-  }
-];
+/** Latest-articles strip — real published posts, with a graceful fallback. */
+function LatestArticles() {
+  const [articles, setArticles] = useState<ArticleSummary[] | null>(null);
+  const [failed, setFailed] = useState(false);
 
-export function LandingPage() {
-  const [menuOpen, setMenuOpen] = useState(false);
+  useEffect(() => {
+    // The landing page must render even if the API is down.
+    articlesApi
+      .listPublic(3)
+      .then(setArticles)
+      .catch(() => setFailed(true));
+  }, []);
 
   return (
+    <section className="mk-section alt" id="articles">
+      <div className="mk-container">
+        <p className="mk-eyebrow">From the club</p>
+        <h2 className="mk-h2">Latest articles</h2>
+
+        {articles && articles.length > 0 ? (
+          <>
+            <div className="mk-grid-3">
+              {articles.map((a) => (
+                <Link key={a.id} to={`/articles/${a.slug}`} className="mk-article">
+                  {a.coverImageUrl ? (
+                    <img className="mk-article-thumb" src={a.coverImageUrl} alt="" style={{ objectFit: 'cover' }} />
+                  ) : (
+                    <div className="mk-article-thumb" aria-hidden="true" />
+                  )}
+                  <div className="mk-article-body">
+                    <span className="mk-date">{formatArticleDate(a.publishedAt)}</span>
+                    <h3>{a.title}</h3>
+                    <p>{a.excerpt}</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+            <p style={{ marginTop: 22 }}>
+              <Link to="/articles" className="btn btn-ghost btn-sm">
+                View all articles
+              </Link>
+            </p>
+          </>
+        ) : (
+          <p className="mk-note">
+            {failed
+              ? 'Articles are unavailable right now — please check back shortly.'
+              : articles
+                ? 'No articles have been published yet — check back soon.'
+                : 'Loading the latest posts…'}
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+export function LandingPage() {
+  return (
     <div className="mk">
-      <header className={`mk-nav${menuOpen ? ' open' : ''}`}>
-        <div className="mk-container mk-nav-inner">
-          <Link to="/" className="brand" aria-label="Mavens Chess Club home">
-            <span className="brand-mark">♞</span>
-            <span>
-              <span className="brand-name" style={{ display: 'block' }}>
-                Mavens Chess Club
-              </span>
-              <span className="brand-sub">Learn · Grow · Play</span>
-            </span>
-          </Link>
-
-          <nav className="mk-nav-links" aria-label="Primary">
-            {NAV_LINKS.map((l) => (
-              <a key={l.label} href={l.href} onClick={() => setMenuOpen(false)}>
-                {l.label}
-              </a>
-            ))}
-          </nav>
-
-          <div className="mk-nav-actions">
-            <Link to="/login" className="btn btn-ghost btn-sm">
-              Sign in
-            </Link>
-            <Link to="/join" className="btn btn-gold btn-sm">
-              Join the club
-            </Link>
-            <button
-              className="mk-nav-toggle"
-              aria-label="Toggle menu"
-              aria-expanded={menuOpen}
-              onClick={() => setMenuOpen((o) => !o)}
-            >
-              ☰
-            </button>
-          </div>
-        </div>
-      </header>
+      <MarketingHeader variant="home" />
 
       <main>
         {/* ---------- Hero ---------- */}
@@ -255,28 +247,7 @@ export function LandingPage() {
         </section>
 
         {/* ---------- Latest articles ---------- */}
-        <section className="mk-section alt" id="articles">
-          <div className="mk-container">
-            <p className="mk-eyebrow">From the club</p>
-            <h2 className="mk-h2">Latest articles</h2>
-            <div className="mk-grid-3">
-              {SAMPLE_ARTICLES.map((a, i) => (
-                <article className="mk-article" key={i}>
-                  <div className="mk-article-thumb" aria-hidden="true" />
-                  <div className="mk-article-body">
-                    <span className="mk-date">{a.date}</span>
-                    <h3>{a.title}</h3>
-                    <p>{a.excerpt}</p>
-                  </div>
-                </article>
-              ))}
-            </div>
-            <p className="mk-note">
-              Placeholder previews. Publishing and the public article archive arrive with the Articles/News
-              feature.
-            </p>
-          </div>
-        </section>
+        <LatestArticles />
 
         {/* ---------- CTA band ---------- */}
         <section className="mk-cta-band">
@@ -295,61 +266,7 @@ export function LandingPage() {
         </section>
       </main>
 
-      {/* ---------- Footer ---------- */}
-      <footer className="mk-footer" id="contact">
-        <div className="mk-container">
-          <div className="mk-footer-grid">
-            <div className="mk-footer-brand">
-              <div className="brand">
-                <span className="brand-mark">♞</span>
-                <span className="brand-name">Mavens Chess Club</span>
-              </div>
-              <p>Chess &amp; scholastic coaching for players of every age and background across Kenya.</p>
-            </div>
-
-            <div>
-              <h4>Quick links</h4>
-              <ul>
-                <li><a href="#about">About</a></li>
-                <li><a href="#programs">Programs</a></li>
-                <li><a href="#coaches">Coaches</a></li>
-                <li><a href="#articles">Articles</a></li>
-                <li><Link to="/login">Sign in</Link></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4>Contact</h4>
-              <ul>
-                <li>A108 Westlands Road, Nairobi</li>
-                <li>+254 702 101 676</li>
-                <li>+254 702 101 686</li>
-                {/* PLACEHOLDER email — confirm the real address. */}
-                <li><a href="mailto:info@mavens.co.ke">info@mavens.co.ke</a></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4>Newsletter</h4>
-              <ul>
-                <li>Club updates, events and results.</li>
-              </ul>
-              {/* PLACEHOLDER — not wired to a backend yet. */}
-              <form className="mk-newsletter" onSubmit={(e) => e.preventDefault()}>
-                <input type="email" placeholder="you@example.com" aria-label="Email address" />
-                <button type="submit" className="btn btn-gold btn-sm">
-                  Subscribe
-                </button>
-              </form>
-            </div>
-          </div>
-
-          <div className="mk-footer-bottom">
-            <span>© {new Date().getFullYear()} Mavens Chess Club. All rights reserved.</span>
-            <span>Nairobi, Kenya</span>
-          </div>
-        </div>
-      </footer>
+      <MarketingFooter />
     </div>
   );
 }
