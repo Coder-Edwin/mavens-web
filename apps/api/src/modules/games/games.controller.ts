@@ -21,10 +21,11 @@ export class GamesController {
     return this.gamesService.listForUser(user.userId);
   }
 
-  // GET /api/v1/games/:id — full game state
+  // GET /api/v1/games/:id — full game state; participants only (an open
+  // challenge is visible to anyone so they can decide whether to join).
   @Get(':id')
-  get(@Param('id') id: string) {
-    return this.gamesService.get(id);
+  get(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.gamesService.getForUser(id, user.userId);
   }
 
   // POST /api/v1/games/:id/join — take the empty seat (PENDING -> ACTIVE)

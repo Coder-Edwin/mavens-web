@@ -1,5 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException
+} from '@nestjs/common';
 import { Chess } from 'chess.js';
 import { GamesService, inspectPosition } from './games.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -7,8 +12,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 const WHITE = 'user-white';
 const BLACK = 'user-black';
 
-/** A game record as stored, defaulting to a fresh ACTIVE game between the two users. */
-function gameRow(over: Partial<{ id: string; status: string; whiteId: string | null; blackId: string | null; pgn: string }> = {}) {
+function gameRow(over: Partial<Record<string, unknown>> = {}) {
   return {
     id: 'g1',
     status: 'ACTIVE',
@@ -18,9 +22,10 @@ function gameRow(over: Partial<{ id: string; status: string; whiteId: string | n
     resultReason: null,
     fen: new Chess().fen(),
     pgn: '',
+    revision: 0,
     endedAt: null,
     ...over
-  };
+  } as Record<string, any>;
 }
 
 describe('inspectPosition', () => {
@@ -31,7 +36,7 @@ describe('inspectPosition', () => {
   });
 
   it('reports a draw on stalemate', () => {
-    const c = new Chess('7k/5Q2/6K1/8/8/8/8/8 b - - 0 1'); // black to move, no legal moves, not in check
+    const c = new Chess('7k/5Q2/6K1/8/8/8/8/8 b - - 0 1');
     expect(inspectPosition(c).over).toEqual({ result: 'DRAW', reason: 'stalemate' });
   });
 
@@ -42,22 +47,41 @@ describe('inspectPosition', () => {
 
 describe('GamesService', () => {
   let service: GamesService;
+  let row: Record<string, any> | null;
   let prisma: {
     game: {
       create: jest.Mock;
       findUnique: jest.Mock;
       findMany: jest.Mock;
-      update: jest.Mock;
+      updateMany: jest.Mock;
     };
   };
 
   beforeEach(async () => {
+    row = gameRow();
     prisma = {
       game: {
         create: jest.fn((a) => Promise.resolve({ id: 'g1', ...a.data })),
-        findUnique: jest.fn(),
+        findUnique: jest.fn(() => Promise.resolve(row ? { ...row } : null)),
         findMany: jest.fn().mockResolvedValue([]),
-        update: jest.fn((a) => Promise.resolve({ ...gameRow(), ...a.data, id: a.where.id }))
+        // Models a conditional UPDATE ... WHERE against the single `row`.
+        updateMany: jest.fn((a: { where: Record<string, any>; data: Record<string, any> }) => {
+          const w = a.where;
+          if (!row) return Promise.resolve({ count: 0 });
+          if (w.id && row.id !== w.id) return Promise.resolve({ count: 0 });
+          if (w.status && row.status !== w.status) return Promise.resolve({ count: 0 });
+          if ('revision' in w && row.revision !== w.revision) return Promise.resolve({ count: 0 });
+          for (const seat of ['whiteId', 'blackId']) {
+            if (seat in w && w[seat] === null && row[seat] !== null) return Promise.resolve({ count: 0 });
+          }
+          const data = { ...a.data };
+          if (data.revision && typeof data.revision === 'object' && 'increment' in data.revision) {
+            row.revision += data.revision.increment;
+            delete data.revision;
+          }
+          Object.assign(row, data);
+          return Promise.resolve({ count: 1 });
+        })
       }
     };
     const module: TestingModule = await Test.createTestingModule({
@@ -89,110 +113,159 @@ describe('GamesService', () => {
     });
   });
 
+  describe('getForUser — access control', () => {
+    it('lets a participant read the game', async () => {
+      row = gameRow();
+      await expect(service.getForUser('g1', WHITE)).resolves.toMatchObject({ id: 'g1' });
+    });
+
+    it('lets anyone read a PENDING game with an open seat (public challenge)', async () => {
+      row = gameRow({ status: 'PENDING', blackId: null });
+      await expect(service.getForUser('g1', 'stranger')).resolves.toMatchObject({ id: 'g1' });
+    });
+
+    it('blocks a non-participant from reading a live game', async () => {
+      row = gameRow(); // ACTIVE, both seats filled
+      await expect(service.getForUser('g1', 'stranger')).rejects.toThrow(ForbiddenException);
+    });
+  });
+
   describe('join', () => {
-    it('fills the empty seat and flips the game to ACTIVE', async () => {
-      prisma.game.findUnique.mockResolvedValue(gameRow({ status: 'PENDING', blackId: null }));
+    it('claims the open seat atomically and flips the game to ACTIVE', async () => {
+      row = gameRow({ status: 'PENDING', blackId: null });
       await service.join('g1', BLACK);
-      expect(prisma.game.update).toHaveBeenCalledWith(
-        expect.objectContaining({ data: { blackId: BLACK, status: 'ACTIVE' } })
-      );
+
+      expect(prisma.game.updateMany).toHaveBeenCalledWith({
+        where: { id: 'g1', status: 'PENDING', blackId: null },
+        data: { blackId: BLACK, status: 'ACTIVE' }
+      });
+      expect(row).toMatchObject({ blackId: BLACK, status: 'ACTIVE' });
+    });
+
+    it('reports a conflict instead of overwriting when the seat was taken concurrently', async () => {
+      row = gameRow({ status: 'PENDING', blackId: null });
+      prisma.game.updateMany.mockResolvedValueOnce({ count: 0 }); // another joiner won the seat
+      await expect(service.join('g1', BLACK)).rejects.toThrow(ConflictException);
     });
 
     it('rejects joining your own game', async () => {
-      prisma.game.findUnique.mockResolvedValue(gameRow({ status: 'PENDING', blackId: null }));
+      row = gameRow({ status: 'PENDING', blackId: null });
       await expect(service.join('g1', WHITE)).rejects.toThrow(BadRequestException);
+      expect(prisma.game.updateMany).not.toHaveBeenCalled();
     });
 
     it('rejects joining a game that is already full', async () => {
-      prisma.game.findUnique.mockResolvedValue(gameRow({ status: 'ACTIVE' }));
+      row = gameRow({ status: 'ACTIVE' });
       await expect(service.join('g1', 'someone-else')).rejects.toThrow(BadRequestException);
     });
 
     it('throws NotFoundException for an unknown game', async () => {
-      prisma.game.findUnique.mockResolvedValue(null);
+      row = null;
       await expect(service.join('nope', BLACK)).rejects.toThrow(NotFoundException);
     });
   });
 
   describe('applyMove', () => {
-    it('accepts a legal opening move from the side to move and stores the new position', async () => {
-      prisma.game.findUnique.mockResolvedValue(gameRow());
+    it('accepts a legal move and writes it under the current revision', async () => {
+      row = gameRow(); // revision 0
       const res = await service.applyMove('g1', WHITE, { from: 'e2', to: 'e4' });
 
       expect(res.move).toMatchObject({ san: 'e4', color: 'w' });
-      const data = prisma.game.update.mock.calls[0][0].data;
-      expect(data.pgn).toContain('1. e4');
-      expect(data.status).toBeUndefined(); // game still going
+      const call = prisma.game.updateMany.mock.calls[0][0];
+      expect(call.where).toEqual({ id: 'g1', revision: 0 });
+      expect(call.data.pgn).toContain('1. e4');
+      expect(call.data.revision).toEqual({ increment: 1 });
+      expect(row!.revision).toBe(1);
       expect(res.over).toBeNull();
     });
 
+    it('rejects and does not persist when the revision has moved on (concurrent move)', async () => {
+      row = gameRow();
+      prisma.game.updateMany.mockResolvedValueOnce({ count: 0 }); // someone else moved first
+      await expect(service.applyMove('g1', WHITE, { from: 'e2', to: 'e4' })).rejects.toThrow(
+        ConflictException
+      );
+      expect(row!.pgn).toBe(''); // nothing written
+    });
+
     it("rejects a move when it is not that player's turn", async () => {
-      prisma.game.findUnique.mockResolvedValue(gameRow()); // white to move
+      row = gameRow();
       await expect(service.applyMove('g1', BLACK, { from: 'e7', to: 'e5' })).rejects.toThrow(
         /not your turn/i
       );
     });
 
     it('rejects an illegal move', async () => {
-      prisma.game.findUnique.mockResolvedValue(gameRow());
+      row = gameRow();
       await expect(service.applyMove('g1', WHITE, { from: 'e2', to: 'e5' })).rejects.toThrow(
         BadRequestException
       );
     });
 
     it('rejects a move from someone who is not in the game', async () => {
-      prisma.game.findUnique.mockResolvedValue(gameRow());
-      await expect(
-        service.applyMove('g1', 'stranger', { from: 'e2', to: 'e4' })
-      ).rejects.toThrow(ForbiddenException);
+      row = gameRow();
+      await expect(service.applyMove('g1', 'stranger', { from: 'e2', to: 'e4' })).rejects.toThrow(
+        ForbiddenException
+      );
     });
 
     it('rejects moves once the game is finished', async () => {
-      prisma.game.findUnique.mockResolvedValue(gameRow({ status: 'FINISHED' }));
+      row = gameRow({ status: 'FINISHED' });
       await expect(service.applyMove('g1', WHITE, { from: 'e2', to: 'e4' })).rejects.toThrow(
         BadRequestException
       );
     });
 
     it('marks the game FINISHED and records the winner on checkmate', async () => {
-      // Position one move before Qh4# (fool’s mate); black to move.
       const c = new Chess();
       ['f3', 'e5', 'g4'].forEach((m) => c.move(m));
-      prisma.game.findUnique.mockResolvedValue(gameRow({ pgn: c.pgn() }));
+      row = gameRow({ pgn: c.pgn() });
 
       const res = await service.applyMove('g1', BLACK, { from: 'd8', to: 'h4' });
 
       expect(res.over).toEqual({ result: 'BLACK_WINS', reason: 'checkmate' });
-      const data = prisma.game.update.mock.calls[0][0].data;
-      expect(data.status).toBe('FINISHED');
-      expect(data.result).toBe('BLACK_WINS');
-      expect(data.resultReason).toBe('checkmate');
-      expect(data.endedAt).toBeInstanceOf(Date);
+      expect(res.game).toMatchObject({
+        status: 'FINISHED',
+        result: 'BLACK_WINS',
+        resultReason: 'checkmate'
+      });
+      expect(row!.endedAt).toBeInstanceOf(Date);
     });
   });
 
   describe('resign', () => {
     it('ends the game in favour of the opponent', async () => {
-      prisma.game.findUnique.mockResolvedValue(gameRow());
-      await service.resign('g1', WHITE);
-      expect(prisma.game.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            status: 'FINISHED',
-            result: 'BLACK_WINS',
-            resultReason: 'resignation'
-          })
+      row = gameRow();
+      const g = await service.resign('g1', WHITE);
+      expect(prisma.game.updateMany).toHaveBeenCalledWith({
+        where: { id: 'g1', status: 'ACTIVE' },
+        data: expect.objectContaining({
+          status: 'FINISHED',
+          result: 'BLACK_WINS',
+          resultReason: 'resignation'
         })
-      );
+      });
+      expect(g).toMatchObject({ status: 'FINISHED', result: 'BLACK_WINS' });
+    });
+
+    it('returns the real result when a move finished the game first (no overwrite)', async () => {
+      row = gameRow();
+      prisma.game.updateMany.mockImplementationOnce(() => {
+        row = gameRow({ status: 'FINISHED', result: 'WHITE_WINS', resultReason: 'checkmate' });
+        return Promise.resolve({ count: 0 });
+      });
+
+      const g = await service.resign('g1', BLACK);
+      expect(g).toMatchObject({ result: 'WHITE_WINS', resultReason: 'checkmate' });
     });
 
     it('rejects a resign from a non-player', async () => {
-      prisma.game.findUnique.mockResolvedValue(gameRow());
+      row = gameRow();
       await expect(service.resign('g1', 'stranger')).rejects.toThrow(ForbiddenException);
     });
 
     it('rejects resigning a game that is not in progress', async () => {
-      prisma.game.findUnique.mockResolvedValue(gameRow({ status: 'PENDING', blackId: null }));
+      row = gameRow({ status: 'PENDING', blackId: null });
       await expect(service.resign('g1', WHITE)).rejects.toThrow(BadRequestException);
     });
   });

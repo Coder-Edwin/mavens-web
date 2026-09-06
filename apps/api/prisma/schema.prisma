@@ -547,6 +547,7 @@ model Game {
   resultReason String? // checkmate | stalemate | resignation | threefold | insufficient-material | fifty-move
   fen          String          @db.Text
   pgn          String          @db.Text // movetext; "" until the first move
+  revision     Int             @default(0) // optimistic-lock counter, bumped on every move
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
   endedAt      DateTime?

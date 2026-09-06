@@ -43,15 +43,22 @@ export class GamesGateway {
     @ConnectedSocket() client: Socket,
     @MessageBody() body: { gameId: string }
   ) {
+    const uid = this.userId(client);
+    if (!uid) return client.emit('game:error', { message: 'Not authenticated' });
     if (!body?.gameId) return;
-    client.join(room(body.gameId));
+
+    let game;
     try {
-      const game = await this.games.get(body.gameId);
-      // Broadcast to the whole room so both players' seat/status view refreshes.
-      this.server.to(room(body.gameId)).emit('game:state', game);
+      // Access-checked: only participants (or viewers of an open challenge)
+      // may enter the room.
+      game = await this.games.getForUser(body.gameId, uid);
     } catch (err) {
-      client.emit('game:error', { message: (err as Error)?.message ?? 'Game not found' });
+      return client.emit('game:error', { message: (err as Error)?.message ?? 'Game not found' });
     }
+
+    client.join(room(body.gameId));
+    // Broadcast to the whole room so both players' seat/status view refreshes.
+    this.server.to(room(body.gameId)).emit('game:state', game);
   }
 
   @SubscribeMessage('game:move')

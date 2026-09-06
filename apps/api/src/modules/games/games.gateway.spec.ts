@@ -7,6 +7,7 @@ describe('GamesGateway', () => {
   let gateway: GamesGateway;
   let games: {
     get: jest.Mock;
+    getForUser: jest.Mock;
     applyMove: jest.Mock;
     resign: jest.Mock;
   };
@@ -31,6 +32,7 @@ describe('GamesGateway', () => {
     clientEmits.length = 0;
     games = {
       get: jest.fn().mockResolvedValue({ id: 'g1', status: 'ACTIVE' }),
+      getForUser: jest.fn().mockResolvedValue({ id: 'g1', status: 'ACTIVE' }),
       applyMove: jest.fn(),
       resign: jest.fn()
     };
@@ -47,11 +49,34 @@ describe('GamesGateway', () => {
     gateway.server = server;
   });
 
-  it('game:join adds the socket to the room and broadcasts current state', async () => {
-    const c = client();
+  it('game:join checks access, adds the socket to the room and broadcasts current state', async () => {
+    const c = client('tok');
     await gateway.onJoin(c, { gameId: 'g1' });
+    expect(games.getForUser).toHaveBeenCalledWith('g1', 'user-1');
     expect((c as unknown as { join: jest.Mock }).join).toHaveBeenCalledWith('game:g1');
     expect(emitted).toContainEqual({ target: 'game:g1', event: 'game:state', payload: { id: 'g1', status: 'ACTIVE' } });
+  });
+
+  it('game:join rejects an unauthenticated socket without joining the room', async () => {
+    jwt.verify.mockImplementation(() => {
+      throw new Error('bad token');
+    });
+    const c = client('tok');
+    await gateway.onJoin(c, { gameId: 'g1' });
+    expect((c as unknown as { join: jest.Mock }).join).not.toHaveBeenCalled();
+    expect(clientEmits).toContainEqual({ event: 'game:error', payload: { message: 'Not authenticated' } });
+  });
+
+  it('game:join relays a forbidden access error to the sender only', async () => {
+    games.getForUser.mockRejectedValue(new Error('You are not a participant in this game'));
+    const c = client('tok');
+    await gateway.onJoin(c, { gameId: 'g1' });
+    expect((c as unknown as { join: jest.Mock }).join).not.toHaveBeenCalled();
+    expect(clientEmits).toContainEqual({
+      event: 'game:error',
+      payload: { message: 'You are not a participant in this game' }
+    });
+    expect(emitted).toHaveLength(0);
   });
 
   it('game:move broadcasts the move and, when the game ends, a game:over', async () => {

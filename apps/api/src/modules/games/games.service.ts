@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException
@@ -95,9 +96,23 @@ export class GamesService {
     return { open, mine };
   }
 
+  /// Internal — no access check. Only call this once the caller has already
+  /// been proven a participant (e.g. right after a successful move/resign).
   async get(id: string) {
     const game = await this.prisma.game.findUnique({ where: { id }, include: PLAYER_SELECT });
     if (!game) throw new NotFoundException('Game not found');
+    return game;
+  }
+
+  /// Access-checked read. A player in the game can always see it; anyone may
+  /// see a PENDING game that still has an open seat (it's a public challenge).
+  async getForUser(id: string, userId: string) {
+    const game = await this.get(id);
+    const isParticipant = game.whiteId === userId || game.blackId === userId;
+    const isOpenChallenge = game.status === 'PENDING' && (!game.whiteId || !game.blackId);
+    if (!isParticipant && !isOpenChallenge) {
+      throw new ForbiddenException('You are not a participant in this game');
+    }
     return game;
   }
 
@@ -111,11 +126,17 @@ export class GamesService {
       throw new BadRequestException('You are already in this game');
     }
     const seat = game.whiteId ? 'blackId' : 'whiteId';
-    return this.prisma.game.update({
-      where: { id },
-      data: { [seat]: userId, status: 'ACTIVE' },
-      include: PLAYER_SELECT
+
+    // Claim the seat atomically: the row must still be PENDING with that seat
+    // empty. If a concurrent joiner won it, count is 0.
+    const claimed = await this.prisma.game.updateMany({
+      where: { id, status: 'PENDING', [seat]: null },
+      data: { [seat]: userId, status: 'ACTIVE' }
     });
+    if (claimed.count === 0) {
+      throw new ConflictException('Someone just joined this game');
+    }
+    return this.prisma.game.findUnique({ where: { id }, include: PLAYER_SELECT });
   }
 
   // ── Play ─────────────────────────────────────────────────────────────────
@@ -143,20 +164,27 @@ export class GamesService {
     }
 
     const { over } = inspectPosition(chess);
-    const updated = await this.prisma.game.update({
-      where: { id },
+
+    // Optimistic lock: only write if the game hasn't advanced since we read
+    // it. Two requests racing on the same position — one lands, the other
+    // gets a conflict and the caller resyncs from the authoritative state.
+    const written = await this.prisma.game.updateMany({
+      where: { id, revision: game.revision },
       data: {
         fen: chess.fen(),
         pgn: chess.pgn(),
+        revision: { increment: 1 },
         ...(over
           ? { status: 'FINISHED', result: over.result, resultReason: over.reason, endedAt: new Date() }
           : {})
-      },
-      include: PLAYER_SELECT
+      }
     });
+    if (written.count === 0) {
+      throw new ConflictException('The game moved on — refetch and try again');
+    }
 
     return {
-      game: updated,
+      game: await this.get(id),
       move: { san: played.san, from: played.from, to: played.to, color },
       over
     };
@@ -170,15 +198,17 @@ export class GamesService {
     const color = this.colorOf(game, userId);
     if (!color) throw new ForbiddenException('You are not a player in this game');
 
-    return this.prisma.game.update({
-      where: { id },
+    // Conditional: if a move finished the game between the read and here,
+    // count is 0 and get() below returns whatever result actually landed.
+    await this.prisma.game.updateMany({
+      where: { id, status: 'ACTIVE' },
       data: {
         status: 'FINISHED',
         result: color === 'w' ? 'BLACK_WINS' : 'WHITE_WINS',
         resultReason: 'resignation',
         endedAt: new Date()
-      },
-      include: PLAYER_SELECT
+      }
     });
+    return this.get(id);
   }
 }
