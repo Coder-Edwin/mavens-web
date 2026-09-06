@@ -11,12 +11,32 @@ import { InitiateStkPushDto } from './dto/initiate-stk-push.dto';
 export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
 
-  // POST /api/v1/payments/mpesa/stk-push — parent only, ownership-checked
+  // POST /api/v1/payments/mpesa/stk-push — parent only, ownership-checked.
+  // Monthly class subscription.
   @Post('mpesa/stk-push')
   @UseGuards(RolesGuard)
   @Roles('PARENT')
   initiateStkPush(@Body() dto: InitiateStkPushDto, @CurrentUser() user: AuthenticatedUser) {
     return this.paymentsService.initiateSubscriptionPayment(dto, user);
+  }
+
+  // POST /api/v1/payments/mpesa/membership-stk-push — parent only.
+  // Yearly club membership fee.
+  @Post('mpesa/membership-stk-push')
+  @UseGuards(RolesGuard)
+  @Roles('PARENT')
+  initiateMembershipStkPush(@Body() dto: InitiateStkPushDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.paymentsService.initiateMembershipPayment(dto, user);
+  }
+
+  // GET /api/v1/payments/membership/:studentId — current membership for a
+  // student. Ownership enforced in the service. Declared before :id.
+  @Get('membership/:studentId')
+  membershipForStudent(
+    @Param('studentId') studentId: string,
+    @CurrentUser() user: AuthenticatedUser
+  ) {
+    return this.paymentsService.findMembershipForStudent(studentId, user);
   }
 
   // GET /api/v1/payments — admin only, lists every payment club-wide

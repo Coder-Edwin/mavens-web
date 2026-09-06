@@ -82,6 +82,7 @@ model StudentProfile {
   puzzleAssignments PuzzleAssignment[]
   recordingSheets  RecordingSheet[]
   subscriptions    Subscription[]
+  memberships      Membership[]
   payments         Payment[]
   tournamentRegs   TournamentRegistration[]
   coachNotes       CoachNote[]
@@ -285,10 +286,11 @@ model SubscriptionPlan {
   id            String  @id @default(uuid())
   name          String
   amount        Decimal @db.Decimal(10, 2)
-  billingCycle  String  @default("MONTHLY")
+  billingCycle  String  @default("MONTHLY") // "MONTHLY" for class subs, "YEARLY" for membership
   isActive      Boolean @default(true)
 
   subscriptions Subscription[]
+  memberships   Membership[]
 }
 
 model Subscription {
@@ -308,8 +310,34 @@ model Subscription {
 
 enum PaymentType {
   SUBSCRIPTION
+  MEMBERSHIP
   TOURNAMENT
   MERCHANDISE
+}
+
+/// Yearly club membership, distinct from the monthly class subscription.
+/// One row per student per membership year.
+enum MembershipStatus {
+  PENDING
+  ACTIVE
+  EXPIRED
+}
+
+model Membership {
+  id          String           @id @default(uuid())
+  studentId   String
+  student     StudentProfile   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  planId      String
+  plan        SubscriptionPlan @relation(fields: [planId], references: [id])
+  status      MembershipStatus @default(PENDING)
+  periodStart DateTime
+  periodEnd   DateTime
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  payments Payment[]
+
+  @@index([studentId, status])
 }
 
 enum PaymentStatus {
@@ -330,6 +358,8 @@ model Payment {
   student        StudentProfile? @relation(fields: [studentId], references: [id])
   subscriptionId String?
   subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
+  membershipId   String?
+  membership     Membership?   @relation(fields: [membershipId], references: [id])
   orderId        String?       @unique
   order          Order?        @relation(fields: [orderId], references: [id])
   type           PaymentType

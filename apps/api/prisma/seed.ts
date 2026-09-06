@@ -28,22 +28,23 @@ async function main() {
   // eslint-disable-next-line no-console
   console.log(`Seeded admin/coach account: ${amwai.email} (password: changeme123)`);
 
-  // ---------- Subscription plan ----------
-  const existingPlan = await prisma.subscriptionPlan.findFirst({ where: { isActive: true } });
-  if (!existingPlan) {
-    const plan = await prisma.subscriptionPlan.create({
-      data: {
-        name: 'Monthly Coaching',
-        amount: 3500,
-        billingCycle: 'MONTHLY',
-        isActive: true
-      }
+  // ---------- Plans: monthly class subscription + yearly club membership ----------
+  const plans: { name: string; amount: number; billingCycle: 'MONTHLY' | 'YEARLY' }[] = [
+    { name: 'Monthly Coaching', amount: 3500, billingCycle: 'MONTHLY' },
+    { name: 'Annual Membership', amount: 6000, billingCycle: 'YEARLY' }
+  ];
+  for (const p of plans) {
+    const existing = await prisma.subscriptionPlan.findFirst({
+      where: { isActive: true, billingCycle: p.billingCycle }
     });
+    if (existing) {
+      // eslint-disable-next-line no-console
+      console.log(`${p.billingCycle} plan already exists: ${existing.name}`);
+      continue;
+    }
+    const created = await prisma.subscriptionPlan.create({ data: { ...p, isActive: true } });
     // eslint-disable-next-line no-console
-    console.log(`Seeded subscription plan: ${plan.name} (KES ${plan.amount}/month)`);
-  } else {
-    // eslint-disable-next-line no-console
-    console.log(`Subscription plan already exists: ${existingPlan.name}`);
+    console.log(`Seeded ${p.billingCycle} plan: ${created.name} (KES ${created.amount})`);
   }
 
   // ---------- Parent, linked to Faith ----------

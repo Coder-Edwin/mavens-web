@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Panel } from '@/components/ui/Primitives';
 import { AnnouncementsPanel } from '@/components/AnnouncementsPanel';
+import { MembershipPanel } from '@/features/parent/MembershipPanel';
 import { api, ApiError } from '@/lib/api-client';
 
 interface ChildSummary {
@@ -201,6 +202,17 @@ export function ParentDashboard() {
               )}
             </Panel>
           </div>
+
+          {activeChild && (
+            <div style={{ marginBottom: 16 }}>
+              <MembershipPanel
+                key={activeChild.id}
+                studentId={activeChild.id}
+                childName={activeChild.firstName}
+                phoneNumber={phoneNumber}
+              />
+            </div>
+          )}
 
           <div className="grid-2">
             <Panel title="Upcoming Tournaments">
