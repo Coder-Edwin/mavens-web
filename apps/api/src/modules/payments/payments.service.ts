@@ -11,9 +11,6 @@ export class PaymentsService {
     private readonly mpesaService: MpesaService
   ) {}
 
-  /// Parent pays for one of their OWN children. Same ownership pattern as
-  /// every other module: role alone doesn't prove they're linked to this
-  /// specific student — that's checked against ParentStudent directly.
   async initiateSubscriptionPayment(dto: InitiateStkPushDto, currentUser: AuthenticatedUser) {
     const parentProfile = await this.prisma.parentProfile.findUnique({
       where: { userId: currentUser.userId }
@@ -39,8 +36,6 @@ export class PaymentsService {
       throw new BadRequestException('No active subscription plan is configured');
     }
 
-    // Reuse an existing subscription for this student+plan if one exists,
-    // otherwise start one. It stays OVERDUE until the callback confirms payment.
     let subscription = await this.prisma.subscription.findFirst({
       where: { studentId: dto.studentId, planId: plan.id },
       orderBy: { currentPeriodEnd: 'desc' }
@@ -62,17 +57,12 @@ export class PaymentsService {
       });
     }
 
-    const payment = await this.prisma.payment.create({
-      data: {
-        studentId: dto.studentId,
-        subscriptionId: subscription.id,
-        type: 'SUBSCRIPTION',
-        status: 'PENDING',
-        method: 'MPESA',
-        amount: plan.amount
-      }
-    });
-
+    // FIX: call Daraja BEFORE writing any Payment row. Previously the
+    // Payment was created first, so every failed STK push attempt (e.g.
+    // placeholder credentials) left a permanent, orphaned PENDING row
+    // behind — visible as repeated duplicate entries in the admin
+    // Payments table. Now, if this throws, nothing about this attempt
+    // gets persisted at all.
     const stkResult = await this.mpesaService.initiateStkPush({
       phoneNumber: dto.phoneNumber,
       amount: Number(plan.amount),
@@ -80,13 +70,31 @@ export class PaymentsService {
       transactionDesc: 'Mavens Chess Club subscription'
     });
 
-    await this.prisma.mpesaTransaction.create({
-      data: {
-        paymentId: payment.id,
-        phoneNumber: dto.phoneNumber,
-        checkoutRequestId: stkResult.checkoutRequestId,
-        merchantRequestId: stkResult.merchantRequestId
-      }
+    // Only reached once Daraja has actually accepted the request. Payment
+    // and its MpesaTransaction are created together, atomically, so we
+    // never end up with one existing without the other.
+    const payment = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.payment.create({
+        data: {
+          studentId: dto.studentId,
+          subscriptionId: subscription.id,
+          type: 'SUBSCRIPTION',
+          status: 'PENDING',
+          method: 'MPESA',
+          amount: plan.amount
+        }
+      });
+
+      await tx.mpesaTransaction.create({
+        data: {
+          paymentId: created.id,
+          phoneNumber: dto.phoneNumber,
+          checkoutRequestId: stkResult.checkoutRequestId,
+          merchantRequestId: stkResult.merchantRequestId
+        }
+      });
+
+      return created;
     });
 
     return {
@@ -96,9 +104,6 @@ export class PaymentsService {
     };
   }
 
-  /// Called only by MpesaWebhookController, which has no auth guard.
-  /// Trust comes from the CheckoutRequestID matching a transaction WE
-  /// created when initiateSubscriptionPayment ran — not from a token.
   async handleStkCallback(body: any) {
     const callback = body?.Body?.stkCallback;
     if (!callback) {
@@ -112,8 +117,6 @@ export class PaymentsService {
     });
 
     if (!transaction) {
-      // Unknown transaction — acknowledge anyway so Safaricom stops retrying;
-      // throwing here would just cause repeated re-delivery of the same callback.
       return { ResultCode: 0, ResultDesc: 'Acknowledged: unknown transaction' };
     }
 
@@ -152,8 +155,15 @@ export class PaymentsService {
     return { ResultCode: 0, ResultDesc: 'Accepted' };
   }
 
-  /// Used by the frontend to poll "did it go through yet?" after the
-  /// STK push modal shows its "sending..." state.
+  async findAllForAdmin() {
+    return this.prisma.payment.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: {
+        student: { select: { firstName: true, lastName: true } }
+      }
+    });
+  }
+
   async findOne(id: string, currentUser: AuthenticatedUser) {
     const payment = await this.prisma.payment.findUnique({
       where: { id },

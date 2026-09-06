@@ -19,6 +19,14 @@ export class PaymentsController {
     return this.paymentsService.initiateSubscriptionPayment(dto, user);
   }
 
+  // GET /api/v1/payments — admin only, lists every payment club-wide
+  @Get()
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
+  findAll() {
+    return this.paymentsService.findAllForAdmin();
+  }
+
   // GET /api/v1/payments/:id — ownership enforced in the service; used by the
   // frontend to poll status after showing the "sending..." modal state
   @Get(':id')
