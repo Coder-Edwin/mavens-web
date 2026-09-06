@@ -35,6 +35,14 @@ vi.mock('@/lib/articles', async (importOriginal) => {
   };
 });
 
+vi.mock('@/lib/leads', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/leads')>();
+  return {
+    ...actual,
+    leadsApi: { ...actual.leadsApi, list: vi.fn().mockResolvedValue([]), submit: vi.fn() }
+  };
+});
+
 function renderAt(path: string) {
   return render(
     <AuthProvider>
@@ -63,9 +71,9 @@ describe('AppRoutes', () => {
     expect(await screen.findByRole('heading', { level: 1, name: /mavens chess club/i })).toBeInTheDocument();
   });
 
-  it('shows the join placeholder at /join', async () => {
+  it('shows the join / interest form at /join', async () => {
     renderAt('/join');
-    expect(await screen.findByRole('heading', { name: /registration is opening soon/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /register your interest/i })).toBeInTheDocument();
   });
 
   it('redirects an unauthenticated visit to /app back to the login screen', async () => {
@@ -107,5 +115,11 @@ describe('AppRoutes', () => {
     renderAt('/app/articles');
     expect(await screen.findByRole('button', { name: /new article/i })).toBeInTheDocument();
     expect(screen.getByText('All articles')).toBeInTheDocument();
+  });
+
+  it('renders the admin leads inbox at /app/leads for a signed-in admin', async () => {
+    seedSession('ADMIN');
+    renderAt('/app/leads');
+    expect(await screen.findByText('Enquiries')).toBeInTheDocument();
   });
 });

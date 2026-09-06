@@ -483,6 +483,35 @@ enum ArticleStatus {
 /// A news post or coaching article. Drafts are visible only to admins;
 /// PUBLISHED rows (with a publishedAt in the past) are served to the
 /// public landing page and /articles routes.
+// ─────────────────────────────────────────────────────────────
+// Leads — "join the club" interest submissions from the public
+// ─────────────────────────────────────────────────────────────
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  ENROLLED
+  ARCHIVED
+}
+
+/// Someone interested in joining, submitted from the public /join form.
+/// No auth — anyone can create one; only admins read and triage them.
+model Lead {
+  id         String     @id @default(uuid())
+  parentName String
+  email      String
+  phone      String
+  childName  String?
+  childAge   Int?
+  message    String?    @db.Text
+  status     LeadStatus @default(NEW)
+  notes      String?    @db.Text
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  @@index([status, createdAt])
+}
+
 model Article {
   id          String        @id @default(uuid())
   slug        String        @unique

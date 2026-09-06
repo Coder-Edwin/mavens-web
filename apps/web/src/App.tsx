@@ -9,6 +9,7 @@ import { ArticlePage } from '@/pages/ArticlePage';
 import { Shell } from '@/layouts/Shell';
 import { AdminOverview } from '@/features/admin/AdminOverview';
 import { ArticlesAdmin } from '@/features/admin/ArticlesAdmin';
+import { LeadsAdmin } from '@/features/admin/LeadsAdmin';
 import { CoachDashboard } from '@/features/coach/CoachDashboard';
 import { StudentDashboard } from '@/features/student/StudentDashboard';
 import { ParentDashboard } from '@/features/parent/ParentDashboard';
@@ -35,6 +36,7 @@ function AuthenticatedApp() {
         <Routes>
           <Route index element={<AdminOverview />} />
           <Route path="articles" element={<ArticlesAdmin />} />
+          <Route path="leads" element={<LeadsAdmin />} />
           <Route path="*" element={<Navigate to="/app" replace />} />
         </Routes>
       )}

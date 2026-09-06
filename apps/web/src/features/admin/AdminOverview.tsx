@@ -96,9 +96,14 @@ export function AdminOverview() {
         <div>
           <div className="page-title">Club Overview</div>
         </div>
-        <Link to="/app/articles" className="btn btn-ghost btn-sm">
-          Manage articles
-        </Link>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Link to="/app/leads" className="btn btn-ghost btn-sm">
+            Leads
+          </Link>
+          <Link to="/app/articles" className="btn btn-ghost btn-sm">
+            Manage articles
+          </Link>
+        </div>
       </div>
 
       <div className="kpi-row">
