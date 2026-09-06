@@ -115,4 +115,21 @@ describe('GamePage', () => {
     renderGame();
     expect(await screen.findByText(/waiting for an opponent/i)).toBeInTheDocument();
   });
+
+  it('offers a shareable game link', async () => {
+    getImpl = async () => ({ ...activeGame, status: 'PENDING', blackId: null, black: null });
+    const user = userEvent.setup();
+    renderGame();
+
+    // the invite URL is shown for the waiting player…
+    expect(await screen.findByText(/\/app\/play\/g1$/)).toBeInTheDocument();
+    // …and copies to the clipboard
+    await user.click(screen.getByRole('button', { name: /copy invite link/i }));
+    expect(await navigator.clipboard.readText()).toContain('/app/play/g1');
+  });
+
+  it('always exposes a "copy game link" control in the header', async () => {
+    renderGame();
+    expect(await screen.findByRole('button', { name: /copy game link/i })).toBeInTheDocument();
+  });
 });

@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { Chessboard } from 'react-chessboard';
 import { Chess } from 'chess.js';
 import { Panel } from '@/components/ui/Primitives';
+import { CopyLinkButton } from '@/features/play/CopyLinkButton';
 import { ApiError } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth-context';
 import {
@@ -145,6 +146,9 @@ export function GamePage() {
         : 'lose'
     : '';
 
+  // Canonical, shareable URL for this game (independent of any hash/query).
+  const inviteUrl = `${window.location.origin}/app/play/${game.id}`;
+
   return (
     <>
       <div className="page-head">
@@ -156,6 +160,7 @@ export function GamePage() {
             </Link>
           </div>
         </div>
+        <CopyLinkButton value={inviteUrl} label="Copy game link" className="btn btn-ghost btn-sm" />
       </div>
 
       <div className="pl-game">
@@ -168,7 +173,11 @@ export function GamePage() {
               boardOrientation={myColor ?? 'white'}
               boardWidth={boardWidth}
               arePiecesDraggable={isMyTurn}
+              showBoardNotation
               customBoardStyle={{ borderRadius: 8 }}
+              customDarkSquareStyle={{ backgroundColor: '#6b7f63' }}
+              customLightSquareStyle={{ backgroundColor: '#e9e6d8' }}
+              customNotationStyle={{ fontSize: '10px', fontWeight: 600 }}
             />
           </div>
           <Seat
@@ -181,7 +190,29 @@ export function GamePage() {
         <div className="pl-side">
           {game.status === 'PENDING' && (
             <div className="pl-banner">
-              Waiting for an opponent to join. Share this page’s link to invite someone.
+              <b>Waiting for an opponent.</b>
+              <div style={{ marginTop: 6 }} className="pl-hint">
+                Send this link to whoever you want to play — they open it and the game starts. It also
+                shows in the lobby for anyone online to join.
+              </div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10, flexWrap: 'wrap' }}>
+                <code
+                  style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: 11,
+                    background: 'var(--panel)',
+                    border: '1px solid var(--line)',
+                    borderRadius: 6,
+                    padding: '5px 8px',
+                    maxWidth: '100%',
+                    overflowX: 'auto',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  {inviteUrl}
+                </code>
+                <CopyLinkButton value={inviteUrl} />
+              </div>
             </div>
           )}
 

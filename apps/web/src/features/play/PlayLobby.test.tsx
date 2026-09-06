@@ -97,6 +97,17 @@ describe('PlayLobby', () => {
     expect(await screen.findByText('GAME PAGE')).toBeInTheDocument();
   });
 
+  it('re-fetches the lists when Refresh is clicked', async () => {
+    const user = userEvent.setup();
+    renderLobby();
+    await screen.findByText(/no games in progress/i);
+    const before = calls.filter((c) => c.fn === 'list').length;
+
+    await user.click(screen.getByRole('button', { name: /refresh/i }));
+
+    expect(calls.filter((c) => c.fn === 'list').length).toBeGreaterThan(before);
+  });
+
   it('joins an open challenge and navigates to it', async () => {
     listImpl = async () => ({
       open: [game({ id: 'o1', white: { id: 's', email: 'stranger@x.com' }, whiteId: 's' })],

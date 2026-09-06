@@ -29,6 +29,16 @@ export function PlayLobby() {
 
   useEffect(() => {
     refresh();
+    // Keep the open-challenge list reasonably fresh while sitting in the lobby,
+    // and re-check when the tab regains focus.
+    const t = window.setInterval(refresh, 8000);
+    const onFocus = () => refresh();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      window.clearInterval(t);
+      window.removeEventListener('focus', onFocus);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function newGame() {
@@ -62,6 +72,9 @@ export function PlayLobby() {
           <div className="page-title">Play</div>
           <div className="page-sub">Live games against other members</div>
         </div>
+        <button className="btn btn-ghost btn-sm" onClick={refresh}>
+          Refresh
+        </button>
       </div>
 
       {error && (
@@ -88,7 +101,9 @@ export function PlayLobby() {
             <Button onClick={newGame} disabled={busy}>
               Create game
             </Button>
-            <span className="pl-hint">A challenge link opens once the game is created.</span>
+            <span className="pl-hint">
+              You&rsquo;ll get a link to share — or an online member can join it straight from the list below.
+            </span>
           </div>
         </Panel>
       </div>
