@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth-context';
 import { ApiError } from '@/lib/api-client';
 
@@ -23,6 +24,7 @@ const labelStyle: React.CSSProperties = {
 
 export function LoginScreen() {
   const { login } = useAuth();
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -34,9 +36,9 @@ export function LoginScreen() {
     setSubmitting(true);
     try {
       await login(email, password);
+      navigate('/app', { replace: true });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Something went wrong — is the API running?');
-    } finally {
       setSubmitting(false);
     }
   }
@@ -60,11 +62,23 @@ export function LoginScreen() {
           </div>
         </div>
 
-        <label style={labelStyle}>Email</label>
-        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required style={inputStyle} />
-
-        <label style={labelStyle}>Password</label>
+        <label htmlFor="login-email" style={labelStyle}>
+          Email
+        </label>
         <input
+          id="login-email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          style={inputStyle}
+        />
+
+        <label htmlFor="login-password" style={labelStyle}>
+          Password
+        </label>
+        <input
+          id="login-password"
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
@@ -81,6 +95,12 @@ export function LoginScreen() {
         <button type="submit" disabled={submitting} className="btn btn-gold" style={{ width: '100%' }}>
           {submitting ? 'Signing in…' : 'Sign in'}
         </button>
+
+        <div style={{ marginTop: 16, textAlign: 'center' }}>
+          <Link to="/" style={{ ...labelStyle, textDecoration: 'none' }}>
+            ← Back to site
+          </Link>
+        </div>
       </form>
     </div>
   );

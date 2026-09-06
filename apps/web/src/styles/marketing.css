@@ -1,0 +1,473 @@
+/* ------------------------------------------------------------------ *
+ * Public marketing site styles. Scoped under .mk- to stay clear of
+ * the authenticated app's classes in tokens.css. Same dark + gold
+ * palette (variables come from tokens.css).
+ * ------------------------------------------------------------------ */
+
+.mk {
+  --mk-max: 1120px;
+  color: var(--text);
+}
+
+.mk a {
+  color: inherit;
+}
+
+.mk-container {
+  max-width: var(--mk-max);
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* ---------- Top navigation ---------- */
+.mk-nav {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: rgba(20, 24, 28, 0.86);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
+}
+.mk-nav-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  height: 68px;
+}
+.mk-nav-links {
+  display: flex;
+  gap: 26px;
+  font-size: 13.5px;
+  color: var(--muted);
+}
+.mk-nav-links a:hover {
+  color: var(--text);
+}
+.mk-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.mk-nav-toggle {
+  display: none;
+  background: none;
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+/* ---------- Generic section scaffolding ---------- */
+.mk-section {
+  padding: 76px 0;
+  border-bottom: 1px solid var(--line);
+}
+.mk-section.alt {
+  background: var(--panel);
+}
+.mk-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--gold-soft);
+}
+.mk-h2 {
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 600;
+  margin-top: 10px;
+}
+.mk-lead {
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.7;
+  margin-top: 12px;
+  max-width: 64ch;
+}
+
+/* ---------- Hero ---------- */
+.mk-hero {
+  padding: 92px 0 84px;
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 48px;
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+}
+.mk-hero h1 {
+  font-family: var(--font-display);
+  font-size: 52px;
+  line-height: 1.05;
+  font-weight: 700;
+  margin: 12px 0 6px;
+}
+.mk-hero .mk-tagline {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.mk-hero-cta {
+  display: flex;
+  gap: 12px;
+  margin-top: 26px;
+  flex-wrap: wrap;
+}
+.mk-hero-art {
+  aspect-ratio: 1;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background:
+    repeating-conic-gradient(#2e3740 0% 25%, #191e24 0% 50%) 0 / 12.5% 12.5%;
+  box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.6);
+  position: relative;
+}
+.mk-hero-art::after {
+  /* PLACEHOLDER: swap for a real photo in apps/web/public/ (see mavens.co.ke hero images) */
+  content: 'photo placeholder';
+  position: absolute;
+  inset: auto 0 12px 0;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* ---------- Stats strip ---------- */
+.mk-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+.mk-stat {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 20px;
+  text-align: center;
+}
+.mk-stat b {
+  font-family: var(--font-display);
+  font-size: 30px;
+  color: var(--gold);
+  display: block;
+}
+.mk-stat span {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* ---------- Card grids (programs / coaches / articles / partners) ---------- */
+.mk-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin-top: 32px;
+}
+.mk-card {
+  background: var(--panel-alt);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 22px;
+}
+.mk-card h3 {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.mk-card p {
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.65;
+}
+.mk-card .mk-glyph {
+  font-size: 26px;
+  color: var(--gold-soft);
+  display: block;
+  margin-bottom: 10px;
+}
+
+/* ---------- Founder ---------- */
+.mk-founder {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 36px;
+  align-items: center;
+  margin-top: 28px;
+}
+.mk-portrait {
+  aspect-ratio: 4 / 5;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: linear-gradient(160deg, #232a31, #1b2127);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 12px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.mk-founder-name {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
+}
+.mk-founder-role {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--gold-soft);
+  letter-spacing: 0.06em;
+  margin-top: 4px;
+}
+
+/* ---------- Coach / partner tiles ---------- */
+.mk-tile {
+  background: var(--panel-alt);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+}
+.mk-tile .mk-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  margin: 0 auto 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: var(--gold-soft);
+}
+.mk-tile h3 {
+  font-size: 15px;
+  font-family: var(--font-display);
+}
+.mk-tile span {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--muted);
+}
+.mk-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-top: 32px;
+}
+.mk-logo-tile {
+  height: 88px;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* ---------- Articles ---------- */
+.mk-article {
+  background: var(--panel-alt);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.mk-article-thumb {
+  height: 150px;
+  background: repeating-linear-gradient(45deg, #232a31, #232a31 12px, #1b2127 12px, #1b2127 24px);
+}
+.mk-article-body {
+  padding: 18px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mk-article-body .mk-date {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--muted);
+}
+.mk-article-body h3 {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 600;
+}
+.mk-article-body p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+  flex: 1;
+}
+.mk-note {
+  margin-top: 20px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+/* ---------- CTA band ---------- */
+.mk-cta-band {
+  padding: 72px 0;
+  text-align: center;
+  background: linear-gradient(120deg, #22282f, #1b2127);
+}
+.mk-cta-band h2 {
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 600;
+}
+.mk-cta-band p {
+  color: var(--muted);
+  margin-top: 10px;
+}
+.mk-cta-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 24px;
+  flex-wrap: wrap;
+}
+
+/* ---------- Footer ---------- */
+.mk-footer {
+  padding: 56px 0 30px;
+  background: #12161a;
+}
+.mk-footer-grid {
+  display: grid;
+  grid-template-columns: 1.4fr repeat(3, 1fr);
+  gap: 32px;
+}
+.mk-footer h4 {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+.mk-footer ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.mk-footer ul a:hover {
+  color: var(--text);
+}
+.mk-footer-brand p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.7;
+  margin-top: 10px;
+  max-width: 34ch;
+}
+.mk-newsletter {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.mk-newsletter input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 11px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--panel-alt);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.mk-footer-bottom {
+  margin-top: 40px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+/* ---------- Simple sub-page (Join) ---------- */
+.mk-subpage {
+  min-height: 60vh;
+  display: flex;
+  align-items: center;
+}
+.mk-subpage .mk-container {
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .mk-nav-links {
+    display: none;
+  }
+  .mk-nav-toggle {
+    display: block;
+  }
+  .mk-nav.open .mk-nav-links {
+    display: flex;
+    position: absolute;
+    top: 68px;
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    background: var(--ink);
+    border-bottom: 1px solid var(--line);
+    padding: 16px 24px;
+    gap: 16px;
+  }
+  .mk-hero {
+    grid-template-columns: 1fr;
+    padding: 56px 0;
+  }
+  .mk-hero h1 {
+    font-size: 38px;
+  }
+  .mk-hero-art {
+    order: -1;
+  }
+  .mk-stats {
+    grid-template-columns: 1fr 1fr;
+  }
+  .mk-grid-3,
+  .mk-grid-4 {
+    grid-template-columns: 1fr;
+  }
+  .mk-founder {
+    grid-template-columns: 1fr;
+  }
+  .mk-footer-grid {
+    grid-template-columns: 1fr;
+  }
+}

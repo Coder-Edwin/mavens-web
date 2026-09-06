@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jest",
+    "test:watch": "jest --watch",
     "start:dev": "nodemon --watch src --ext ts --exec \"node -r @swc-node/register src/main.ts\"",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/main.js"
@@ -14,12 +15,16 @@
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
+    "@nestjs/testing": "^11.2.3",
     "@swc-node/register": "^1.12.1",
     "@swc/core": "^1.16.0",
+    "@swc/jest": "^0.2.39",
     "@types/bcrypt": "^6.0.0",
     "@types/express": "^5.0.6",
+    "@types/jest": "^30.0.0",
     "@types/passport-jwt": "^4.0.1",
     "dotenv": "^17.4.2",
+    "jest": "^30.5.1",
     "nodemon": "^3.1.14",
     "prisma": "^7.9.1",
     "ts-node": "^10.9.2",

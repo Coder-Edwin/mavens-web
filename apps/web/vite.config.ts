@@ -7,7 +7,10 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src')
-    }
+    },
+    // Keep a single React copy even though the monorepo root hoists another
+    // version for unrelated tooling.
+    dedupe: ['react', 'react-dom']
   },
   server: {
     port: 5173,

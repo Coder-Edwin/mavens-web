@@ -1,6 +1,9 @@
 import { useState } from 'react';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
 import { LoginScreen } from '@/features/auth/LoginScreen';
+import { LandingPage } from '@/pages/LandingPage';
+import { JoinPage } from '@/pages/JoinPage';
 import { Shell } from '@/layouts/Shell';
 import { AdminOverview } from '@/features/admin/AdminOverview';
 import { CoachDashboard } from '@/features/coach/CoachDashboard';
@@ -13,9 +16,10 @@ function AuthenticatedApp() {
   // coach view. Defaults to the admin view on login.
   const [viewAsCoach, setViewAsCoach] = useState(false);
 
-  if (!user) return null; // only rendered once AppShell has confirmed a user exists
+  if (!user) return null; // route guard already ensures this, kept for type-narrowing
 
-  const effectiveRole = user.role === 'ADMIN' && user.isCoach && viewAsCoach ? 'coach' : user.role.toLowerCase();
+  const effectiveRole =
+    user.role === 'ADMIN' && user.isCoach && viewAsCoach ? 'coach' : user.role.toLowerCase();
 
   return (
     <Shell
@@ -32,16 +36,36 @@ function AuthenticatedApp() {
   );
 }
 
-function AppShell() {
+/**
+ * Route tree, split out from <App> so tests can mount it inside a
+ * MemoryRouter. Public marketing routes ('/', '/join') are always
+ * reachable; '/app' requires a session, '/login' bounces to '/app'
+ * once you have one.
+ */
+export function AppRoutes() {
   const { user, isLoading } = useAuth();
-  if (isLoading) return null; // avoids a login-screen flash while localStorage is checked
-  return user ? <AuthenticatedApp /> : <LoginScreen />;
+  if (isLoading) return null; // avoids a redirect flash while localStorage is checked
+
+  return (
+    <Routes>
+      <Route path="/" element={<LandingPage />} />
+      <Route path="/join" element={<JoinPage />} />
+      <Route path="/login" element={user ? <Navigate to="/app" replace /> : <LoginScreen />} />
+      <Route
+        path="/app/*"
+        element={user ? <AuthenticatedApp /> : <Navigate to="/login" replace />}
+      />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
 }
 
 export default function App() {
   return (
     <AuthProvider>
-      <AppShell />
+      <BrowserRouter>
+        <AppRoutes />
+      </BrowserRouter>
     </AuthProvider>
   );
 }
