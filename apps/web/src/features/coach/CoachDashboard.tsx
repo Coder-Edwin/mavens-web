@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Panel } from "@/components/ui/Primitives";
+import { AnnouncementsPanel } from "@/components/AnnouncementsPanel";
 import { api, ApiError } from "@/lib/api-client";
 
 interface StudentSummary {
@@ -182,6 +183,8 @@ export function CoachDashboard() {
           </div>
         </div>
       </div>
+
+      <AnnouncementsPanel />
 
       <div className="grid-2">
         <Panel title="Log a Session">

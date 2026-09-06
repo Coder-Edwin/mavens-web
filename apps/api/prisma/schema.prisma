@@ -44,6 +44,7 @@ model User {
   notifications  Notification[]
   auditLogs      AuditLog[]
   articles       Article[]
+  announcements  Announcement[]
 
   @@index([role])
 }
@@ -483,6 +484,33 @@ enum ArticleStatus {
 /// A news post or coaching article. Drafts are visible only to admins;
 /// PUBLISHED rows (with a publishedAt in the past) are served to the
 /// public landing page and /articles routes.
+// ─────────────────────────────────────────────────────────────
+// Announcements — admin broadcasts targeted at a role group
+// ─────────────────────────────────────────────────────────────
+
+enum AnnouncementAudience {
+  ALL
+  PARENTS
+  STUDENTS
+  COACHES
+}
+
+/// A message the admin broadcasts to a group. It shows up in the matching
+/// recipients' dashboards via GET /announcements/feed. No per-recipient
+/// state (read/unread) yet — deliberately simple for v1.
+model Announcement {
+  id        String               @id @default(uuid())
+  title     String
+  body      String               @db.Text
+  audience  AnnouncementAudience  @default(ALL)
+  authorId  String?
+  author    User?                @relation(fields: [authorId], references: [id])
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+
+  @@index([audience, createdAt])
+}
+
 // ─────────────────────────────────────────────────────────────
 // Leads — "join the club" interest submissions from the public
 // ─────────────────────────────────────────────────────────────

@@ -10,6 +10,7 @@ import { TournamentsModule } from './modules/tournaments/tournaments.module';
 import { MerchandiseModule } from './modules/merchandise/merchandise.module';
 import { ArticlesModule } from './modules/articles/articles.module';
 import { LeadsModule } from './modules/leads/leads.module';
+import { AnnouncementsModule } from './modules/announcements/announcements.module';
 
 @Module({
   imports: [
@@ -23,7 +24,8 @@ import { LeadsModule } from './modules/leads/leads.module';
     TournamentsModule,
     MerchandiseModule,
     ArticlesModule,
-    LeadsModule
+    LeadsModule,
+    AnnouncementsModule
   ]
 })
 export class AppModule {}

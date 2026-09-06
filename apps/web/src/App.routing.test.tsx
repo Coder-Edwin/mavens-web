@@ -43,6 +43,18 @@ vi.mock('@/lib/leads', async (importOriginal) => {
   };
 });
 
+vi.mock('@/lib/announcements', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/announcements')>();
+  return {
+    ...actual,
+    announcementsApi: {
+      ...actual.announcementsApi,
+      feed: vi.fn().mockResolvedValue([]),
+      listAdmin: vi.fn().mockResolvedValue([])
+    }
+  };
+});
+
 function renderAt(path: string) {
   return render(
     <AuthProvider>
@@ -121,5 +133,11 @@ describe('AppRoutes', () => {
     seedSession('ADMIN');
     renderAt('/app/leads');
     expect(await screen.findByText('Enquiries')).toBeInTheDocument();
+  });
+
+  it('renders the admin announcements manager at /app/announcements for a signed-in admin', async () => {
+    seedSession('ADMIN');
+    renderAt('/app/announcements');
+    expect(await screen.findByRole('button', { name: /send announcement/i })).toBeInTheDocument();
   });
 });

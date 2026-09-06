@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Panel } from '@/components/ui/Primitives';
+import { AnnouncementsPanel } from '@/components/AnnouncementsPanel';
 import { api, ApiError } from '@/lib/api-client';
 
 interface ChildSummary {
@@ -138,6 +139,8 @@ export function ParentDashboard() {
           <div className="page-title">Family Overview</div>
         </div>
       </div>
+
+      <AnnouncementsPanel />
 
       {children.length === 0 ? (
         <Panel title="No children linked yet">
