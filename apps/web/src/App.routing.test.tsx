@@ -63,9 +63,16 @@ vi.mock('@/lib/games', async (importOriginal) => {
       list: vi.fn().mockResolvedValue({ open: [], mine: [] }),
       get: vi.fn().mockResolvedValue(null),
       create: vi.fn(),
-      join: vi.fn()
+      join: vi.fn(),
+      cancel: vi.fn()
     },
-    connectGameSocket: () => ({ move: vi.fn(), resign: vi.fn(), disconnect: vi.fn() })
+    connectGameSocket: () => ({
+      move: vi.fn(),
+      resign: vi.fn(),
+      cancel: vi.fn(),
+      rejoin: vi.fn(),
+      disconnect: vi.fn()
+    })
   };
 });
 

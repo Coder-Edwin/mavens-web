@@ -23,6 +23,7 @@ const socketCalls: string[] = [];
 let capturedHandlers: GameSocketHandlers = {};
 let getImpl: () => Promise<Game>;
 let joinImpl: (id: string) => Promise<Game>;
+const gamesApiCalls: { fn: string; arg?: unknown }[] = [];
 
 vi.mock('@/lib/games', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/games')>();
@@ -32,13 +33,18 @@ vi.mock('@/lib/games', async (importOriginal) => {
       get: () => getImpl(),
       list: vi.fn(),
       create: vi.fn(),
-      join: (id: string) => joinImpl(id)
+      join: (id: string) => joinImpl(id),
+      cancel: (id: string) => {
+        gamesApiCalls.push({ fn: 'cancel', arg: id });
+        return Promise.resolve({} as Game);
+      }
     },
     connectGameSocket: (_id: string, handlers: GameSocketHandlers) => {
       capturedHandlers = handlers;
       return {
         move: (m: { from: string; to: string }) => socketMoves.push(m),
         resign: () => socketCalls.push('resign'),
+        cancel: () => socketCalls.push('cancel'),
         rejoin: () => socketCalls.push('rejoin'),
         disconnect: vi.fn()
       };
@@ -79,6 +85,7 @@ function renderGame() {
 beforeEach(() => {
   socketMoves.length = 0;
   socketCalls.length = 0;
+  gamesApiCalls.length = 0;
   capturedHandlers = {};
   getImpl = async () => activeGame;
   joinImpl = async () => activeGame;
@@ -152,6 +159,17 @@ describe('GamePage', () => {
   it('always exposes a "copy game link" control in the header', async () => {
     renderGame();
     expect(await screen.findByRole('button', { name: /copy game link/i })).toBeInTheDocument();
+  });
+
+  it('lets the waiting creator cancel the challenge', async () => {
+    getImpl = async () => ({ ...activeGame, status: 'PENDING', blackId: null, black: null });
+    const user = userEvent.setup();
+    renderGame();
+
+    await user.click(await screen.findByRole('button', { name: /cancel challenge/i }));
+
+    expect(gamesApiCalls).toContainEqual({ fn: 'cancel', arg: 'g1' });
+    expect(socketCalls).toContain('cancel');
   });
 
   it('lets a non-participant open a shared PENDING game and join it', async () => {

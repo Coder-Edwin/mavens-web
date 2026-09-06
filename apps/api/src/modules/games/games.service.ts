@@ -40,6 +40,9 @@ export function inspectPosition(chess: Chess): { turn: Color; over: GameOver | n
   return { turn, over };
 }
 
+/// A challenge nobody has joined in this long is swept to ABANDONED.
+export const PENDING_TTL_MS = 10 * 60 * 1000;
+
 @Injectable()
 export class GamesService {
   constructor(private readonly prisma: PrismaService) {}
@@ -48,6 +51,15 @@ export class GamesService {
     if (game.whiteId === userId) return 'w';
     if (game.blackId === userId) return 'b';
     return null;
+  }
+
+  /// Lazily retire challenges that have been open too long. Cheap indexed
+  /// update; run it on the lobby-adjacent paths so stale rows never surface.
+  private expireStale() {
+    return this.prisma.game.updateMany({
+      where: { status: 'PENDING', createdAt: { lt: new Date(Date.now() - PENDING_TTL_MS) } },
+      data: { status: 'ABANDONED', endedAt: new Date() }
+    });
   }
 
   /// Replays the stored movetext so the server position is authoritative.
@@ -60,6 +72,13 @@ export class GamesService {
   // ── Lobby ────────────────────────────────────────────────────────────────
 
   async create(userId: string, colorPref: ColorPref = 'random') {
+    // One open challenge per user — retire any earlier unmatched one so the
+    // lobby never fills with a member's dangling challenges.
+    await this.prisma.game.updateMany({
+      where: { status: 'PENDING', OR: [{ whiteId: userId }, { blackId: userId }] },
+      data: { status: 'ABANDONED', endedAt: new Date() }
+    });
+
     let color = colorPref;
     if (color === 'random') color = Math.random() < 0.5 ? 'white' : 'black';
 
@@ -77,6 +96,7 @@ export class GamesService {
 
   /// Open challenges from other members + the caller's own pending/active games.
   async listForUser(userId: string) {
+    await this.expireStale();
     const [open, mine] = await Promise.all([
       this.prisma.game.findMany({
         where: { status: 'PENDING', whiteId: { not: userId }, blackId: { not: userId } },
@@ -107,6 +127,7 @@ export class GamesService {
   /// Access-checked read. A player in the game can always see it; anyone may
   /// see a PENDING game that still has an open seat (it's a public challenge).
   async getForUser(id: string, userId: string) {
+    await this.expireStale();
     const game = await this.get(id);
     const isParticipant = game.whiteId === userId || game.blackId === userId;
     const isOpenChallenge = game.status === 'PENDING' && (!game.whiteId || !game.blackId);
@@ -117,6 +138,7 @@ export class GamesService {
   }
 
   async join(id: string, userId: string) {
+    await this.expireStale();
     const game = await this.prisma.game.findUnique({ where: { id } });
     if (!game) throw new NotFoundException('Game not found');
     if (game.status !== 'PENDING') {
@@ -213,6 +235,29 @@ export class GamesService {
         revision: { increment: 1 }
       }
     });
+    return this.get(id);
+  }
+
+  /// Withdraw your own not-yet-joined challenge.
+  async cancel(id: string, userId: string) {
+    const game = await this.prisma.game.findUnique({ where: { id } });
+    if (!game) throw new NotFoundException('Game not found');
+
+    const color = this.colorOf(game, userId);
+    if (!color) throw new ForbiddenException('You are not a player in this game');
+    if (game.status !== 'PENDING') {
+      throw new BadRequestException('Only a pending challenge can be cancelled');
+    }
+
+    // If an opponent joined between the read and here, the row is no longer
+    // PENDING — report a conflict rather than abandoning a live game.
+    const done = await this.prisma.game.updateMany({
+      where: { id, status: 'PENDING' },
+      data: { status: 'ABANDONED', endedAt: new Date() }
+    });
+    if (done.count === 0) {
+      throw new ConflictException('Someone just joined this game');
+    }
     return this.get(id);
   }
 }

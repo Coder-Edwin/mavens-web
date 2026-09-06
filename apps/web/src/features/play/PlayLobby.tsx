@@ -65,6 +65,19 @@ export function PlayLobby() {
     }
   }
 
+  async function cancel(id: string) {
+    setBusy(true);
+    setError(null);
+    try {
+      await gamesApi.cancel(id);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not cancel that challenge.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <>
       <div className="page-head">
@@ -112,21 +125,36 @@ export function PlayLobby() {
         <Panel title="Your games">
           {!data && <div className="pl-hint">Loading…</div>}
           {data && data.mine.length === 0 && <div className="pl-hint">No games in progress.</div>}
-          {data?.mine.map((g) => (
-            <div className="pl-row" key={g.id}>
-              <div>
-                <Link to={`/app/play/${g.id}`} style={{ color: 'var(--text)' }}>
-                  vs {opponentOf(g, user?.id)}
-                </Link>
-                <div className="meta">
-                  {g.status === 'PENDING' ? 'waiting for an opponent' : g.status.toLowerCase()}
+          {data?.mine.map((g) => {
+            const pending = g.status === 'PENDING';
+            return (
+              <div className="pl-row" key={g.id}>
+                <div>
+                  <Link to={`/app/play/${g.id}`} style={{ color: 'var(--text)' }}>
+                    {pending ? 'Open challenge' : `vs ${opponentOf(g, user?.id)}`}
+                  </Link>
+                  <div className="meta">
+                    {pending ? 'waiting to be joined' : g.status.toLowerCase()}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <Link to={`/app/play/${g.id}`} className="btn btn-ghost btn-sm">
+                    {pending ? 'Open' : 'Resume'}
+                  </Link>
+                  {pending && (
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      style={{ color: 'var(--red)' }}
+                      onClick={() => cancel(g.id)}
+                      disabled={busy}
+                    >
+                      Cancel
+                    </button>
+                  )}
                 </div>
               </div>
-              <Link to={`/app/play/${g.id}`} className="btn btn-ghost btn-sm">
-                {g.status === 'PENDING' ? 'Open' : 'Resume'}
-              </Link>
-            </div>
-          ))}
+            );
+          })}
         </Panel>
 
         <Panel title="Open challenges">

@@ -41,7 +41,8 @@ export const gamesApi = {
   create: (color: ColorPref) => api.post<Game>('/games', { color }),
   list: () => api.get<{ open: Game[]; mine: Game[] }>('/games'),
   get: (id: string) => api.get<Game>(`/games/${id}`),
-  join: (id: string) => api.post<Game>(`/games/${id}/join`)
+  join: (id: string) => api.post<Game>(`/games/${id}/join`),
+  cancel: (id: string) => api.post<Game>(`/games/${id}/cancel`)
 };
 
 export interface GameSocketHandlers {
@@ -54,6 +55,8 @@ export interface GameSocketHandlers {
 export interface GameSocket {
   move: (m: { from: string; to: string; promotion?: string }) => void;
   resign: () => void;
+  /** Withdraw a not-yet-joined challenge; broadcasts a `game:state`. */
+  cancel: () => void;
   /** Re-announce presence in the room — e.g. after joining a shared game,
    *  so the other player receives a fresh `game:state`. */
   rejoin: () => void;
@@ -79,6 +82,7 @@ export function connectGameSocket(gameId: string, handlers: GameSocketHandlers):
   return {
     move: (m) => socket.emit('game:move', { gameId, ...m }),
     resign: () => socket.emit('game:resign', { gameId }),
+    cancel: () => socket.emit('game:cancel', { gameId }),
     rejoin: () => socket.emit('game:join', { gameId }),
     disconnect: () => socket.disconnect()
   };

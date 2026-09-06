@@ -33,4 +33,10 @@ export class GamesController {
   join(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.gamesService.join(id, user.userId);
   }
+
+  // POST /api/v1/games/:id/cancel — withdraw your own pending challenge
+  @Post(':id/cancel')
+  cancel(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.gamesService.cancel(id, user.userId);
+  }
 }

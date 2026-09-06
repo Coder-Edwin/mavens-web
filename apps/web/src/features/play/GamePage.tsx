@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Chessboard } from 'react-chessboard';
 import { Chess } from 'chess.js';
 import { Panel } from '@/components/ui/Primitives';
@@ -28,6 +28,7 @@ function Seat({ email, color, isTurn }: { email: string | null; color: 'w' | 'b'
 
 export function GamePage() {
   const { id = '' } = useParams();
+  const navigate = useNavigate();
   const { user } = useAuth();
 
   const chess = useRef(new Chess());
@@ -41,6 +42,7 @@ export function GamePage() {
   const [error, setError] = useState<string | null>(null);
   const [boardWidth, setBoardWidth] = useState(440);
   const [joining, setJoining] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
 
   useLayoutEffect(() => {
     const measure = () => {
@@ -108,6 +110,20 @@ export function GamePage() {
       setError(err instanceof ApiError ? err.message : 'Could not join this game.');
     } finally {
       setJoining(false);
+    }
+  }
+
+  async function cancelChallenge() {
+    if (!game) return;
+    setCancelling(true);
+    setError(null);
+    try {
+      await gamesApi.cancel(game.id);
+      socket.current?.cancel(); // let any room viewer know it's gone
+      navigate('/app/play');
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not cancel this challenge.');
+      setCancelling(false);
     }
   }
 
@@ -229,6 +245,25 @@ export function GamePage() {
                   {inviteUrl}
                 </code>
                 <CopyLinkButton value={inviteUrl} />
+                <button
+                  className="btn btn-ghost btn-sm"
+                  style={{ color: 'var(--red)' }}
+                  onClick={cancelChallenge}
+                  disabled={cancelling}
+                >
+                  {cancelling ? 'Cancelling…' : 'Cancel challenge'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {game.status === 'ABANDONED' && (
+            <div className="pl-banner">
+              <b>This challenge is no longer available.</b>
+              <div style={{ marginTop: 6 }}>
+                <Link to="/app/play" className="btn btn-ghost btn-sm">
+                  ← Back to lobby
+                </Link>
               </div>
             </div>
           )}

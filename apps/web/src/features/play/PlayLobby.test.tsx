@@ -32,6 +32,10 @@ vi.mock('@/lib/games', async (importOriginal) => {
         calls.push({ fn: 'join', arg: id });
         return joinImpl(id);
       },
+      cancel: (id: string) => {
+        calls.push({ fn: 'cancel', arg: id });
+        return Promise.resolve(game({ id, status: 'ABANDONED' }));
+      },
       get: vi.fn()
     }
   };
@@ -83,6 +87,22 @@ describe('PlayLobby', () => {
     const openPanel = screen.getByText('Open challenges').closest('.panel')!;
     expect(within(openPanel).getByText('stranger@x.com')).toBeInTheDocument();
     expect(within(openPanel).getByRole('button', { name: /join/i })).toBeInTheDocument();
+  });
+
+  it('shows your own pending game as an open challenge with a Cancel action', async () => {
+    listImpl = async () => ({
+      open: [],
+      mine: [game({ id: 'm1', status: 'PENDING', whiteId: 'me', blackId: null })]
+    });
+    const user = userEvent.setup();
+    renderLobby();
+
+    const yourPanel = (await screen.findByText('Your games')).closest('.panel')!;
+    expect(within(yourPanel).getByText('Open challenge')).toBeInTheDocument();
+    expect(within(yourPanel).getByText(/waiting to be joined/i)).toBeInTheDocument();
+
+    await user.click(within(yourPanel).getByRole('button', { name: /cancel/i }));
+    expect(calls).toContainEqual({ fn: 'cancel', arg: 'm1' });
   });
 
   it('creates a game with the chosen colour and navigates to it', async () => {

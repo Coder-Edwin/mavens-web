@@ -23,6 +23,7 @@ function gameRow(over: Partial<Record<string, unknown>> = {}) {
     fen: new Chess().fen(),
     pgn: '',
     revision: 0,
+    createdAt: new Date(), // "fresh" — not stale
     endedAt: null,
     ...over
   } as Record<string, any>;
@@ -71,6 +72,15 @@ describe('GamesService', () => {
           if (w.id && row.id !== w.id) return Promise.resolve({ count: 0 });
           if (w.status && row.status !== w.status) return Promise.resolve({ count: 0 });
           if ('revision' in w && row.revision !== w.revision) return Promise.resolve({ count: 0 });
+          if (w.createdAt?.lt && !(row.createdAt < w.createdAt.lt)) return Promise.resolve({ count: 0 });
+          if (
+            w.OR &&
+            !w.OR.some((c: Record<string, unknown>) =>
+              Object.entries(c).every(([k, v]) => row![k] === v)
+            )
+          ) {
+            return Promise.resolve({ count: 0 });
+          }
           for (const seat of ['whiteId', 'blackId']) {
             if (seat in w && w[seat] === null && row[seat] !== null) return Promise.resolve({ count: 0 });
           }
@@ -111,6 +121,14 @@ describe('GamesService', () => {
         expect([d.whiteId, d.blackId].filter((x: unknown) => x === null)).toHaveLength(1);
       }
     });
+
+    it('retires the creator’s earlier open challenge first (one open challenge per user)', async () => {
+      await service.create(WHITE, 'white');
+      expect(prisma.game.updateMany).toHaveBeenCalledWith({
+        where: { status: 'PENDING', OR: [{ whiteId: WHITE }, { blackId: WHITE }] },
+        data: { status: 'ABANDONED', endedAt: expect.any(Date) }
+      });
+    });
   });
 
   describe('getForUser — access control', () => {
@@ -144,14 +162,28 @@ describe('GamesService', () => {
 
     it('reports a conflict instead of overwriting when the seat was taken concurrently', async () => {
       row = gameRow({ status: 'PENDING', blackId: null });
-      prisma.game.updateMany.mockResolvedValueOnce({ count: 0 }); // another joiner won the seat
+      const real = prisma.game.updateMany.getMockImplementation()!;
+      // fail only the seat-claim (has where.id); the stale-sweep (no id) is untouched
+      prisma.game.updateMany.mockImplementation((a: { where: Record<string, unknown> }) =>
+        a.where.id ? Promise.resolve({ count: 0 }) : real(a)
+      );
       await expect(service.join('g1', BLACK)).rejects.toThrow(ConflictException);
+    });
+
+    it('sweeps stale pending challenges before serving the list', async () => {
+      await service.listForUser(WHITE);
+      expect(prisma.game.updateMany).toHaveBeenCalledWith({
+        where: { status: 'PENDING', createdAt: { lt: expect.any(Date) } },
+        data: { status: 'ABANDONED', endedAt: expect.any(Date) }
+      });
     });
 
     it('rejects joining your own game', async () => {
       row = gameRow({ status: 'PENDING', blackId: null });
       await expect(service.join('g1', WHITE)).rejects.toThrow(BadRequestException);
-      expect(prisma.game.updateMany).not.toHaveBeenCalled();
+      // the stale-sweep may run, but no seat-claim (a call carrying where.id)
+      const claimed = prisma.game.updateMany.mock.calls.some((c) => c[0]?.where?.id);
+      expect(claimed).toBe(false);
     });
 
     it('rejects joining a game that is already full', async () => {
@@ -290,6 +322,42 @@ describe('GamesService', () => {
     it('rejects resigning a game that is not in progress', async () => {
       row = gameRow({ status: 'PENDING', blackId: null });
       await expect(service.resign('g1', WHITE)).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('cancel', () => {
+    it('abandons your own pending challenge', async () => {
+      row = gameRow({ status: 'PENDING', blackId: null });
+      const g = await service.cancel('g1', WHITE);
+      expect(prisma.game.updateMany).toHaveBeenCalledWith({
+        where: { id: 'g1', status: 'PENDING' },
+        data: { status: 'ABANDONED', endedAt: expect.any(Date) }
+      });
+      expect(g).toMatchObject({ status: 'ABANDONED' });
+    });
+
+    it('rejects cancelling a game you are not in', async () => {
+      row = gameRow({ status: 'PENDING', blackId: null });
+      await expect(service.cancel('g1', 'stranger')).rejects.toThrow(ForbiddenException);
+    });
+
+    it('rejects cancelling a game that is not pending', async () => {
+      row = gameRow(); // ACTIVE
+      await expect(service.cancel('g1', WHITE)).rejects.toThrow(BadRequestException);
+    });
+
+    it('reports a conflict when an opponent joined between the read and the write', async () => {
+      row = gameRow({ status: 'PENDING', blackId: null });
+      const real = prisma.game.updateMany.getMockImplementation()!;
+      prisma.game.updateMany.mockImplementation((a: { where: Record<string, unknown> }) =>
+        a.where.id ? Promise.resolve({ count: 0 }) : real(a)
+      );
+      await expect(service.cancel('g1', WHITE)).rejects.toThrow(ConflictException);
+    });
+
+    it('throws NotFoundException for an unknown game', async () => {
+      row = null;
+      await expect(service.cancel('nope', WHITE)).rejects.toThrow(NotFoundException);
     });
   });
 
