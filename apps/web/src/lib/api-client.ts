@@ -1,4 +1,6 @@
-const API_BASE_URL = 'http://localhost:3000/api/v1'; // move to a Vite env var when deploying beyond localhost
+// move to a Vite env var when deploying beyond localhost
+export const API_ORIGIN = 'http://localhost:3000';
+const API_BASE_URL = `${API_ORIGIN}/api/v1`;
 
 export class ApiError extends Error {
   status: number;

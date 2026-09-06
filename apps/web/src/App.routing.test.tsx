@@ -55,6 +55,20 @@ vi.mock('@/lib/announcements', async (importOriginal) => {
   };
 });
 
+vi.mock('@/lib/games', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/games')>();
+  return {
+    ...actual,
+    gamesApi: {
+      list: vi.fn().mockResolvedValue({ open: [], mine: [] }),
+      get: vi.fn().mockResolvedValue(null),
+      create: vi.fn(),
+      join: vi.fn()
+    },
+    connectGameSocket: () => ({ move: vi.fn(), resign: vi.fn(), disconnect: vi.fn() })
+  };
+});
+
 function renderAt(path: string) {
   return render(
     <AuthProvider>
@@ -139,5 +153,11 @@ describe('AppRoutes', () => {
     seedSession('ADMIN');
     renderAt('/app/announcements');
     expect(await screen.findByRole('button', { name: /send announcement/i })).toBeInTheDocument();
+  });
+
+  it('gives every signed-in role the play lobby at /app/play', async () => {
+    seedSession('STUDENT');
+    renderAt('/app/play');
+    expect(await screen.findByRole('button', { name: /create game/i })).toBeInTheDocument();
   });
 });

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactElement } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
 import { LoginScreen } from '@/features/auth/LoginScreen';
@@ -14,6 +14,15 @@ import { AnnouncementsAdmin } from '@/features/admin/AnnouncementsAdmin';
 import { CoachDashboard } from '@/features/coach/CoachDashboard';
 import { StudentDashboard } from '@/features/student/StudentDashboard';
 import { ParentDashboard } from '@/features/parent/ParentDashboard';
+import { PlayLobby } from '@/features/play/PlayLobby';
+import { GamePage } from '@/features/play/GamePage';
+
+const DASHBOARDS: Record<string, ReactElement> = {
+  admin: <AdminOverview />,
+  coach: <CoachDashboard />,
+  student: <StudentDashboard />,
+  parent: <ParentDashboard />
+};
 
 function AuthenticatedApp() {
   const { user, logout } = useAuth();
@@ -33,18 +42,19 @@ function AuthenticatedApp() {
       onToggleCoachView={() => setViewAsCoach((v) => !v)}
       onLogout={logout}
     >
-      {effectiveRole === 'admin' && (
-        <Routes>
-          <Route index element={<AdminOverview />} />
-          <Route path="articles" element={<ArticlesAdmin />} />
-          <Route path="leads" element={<LeadsAdmin />} />
-          <Route path="announcements" element={<AnnouncementsAdmin />} />
-          <Route path="*" element={<Navigate to="/app" replace />} />
-        </Routes>
-      )}
-      {effectiveRole === 'coach' && <CoachDashboard />}
-      {effectiveRole === 'student' && <StudentDashboard />}
-      {effectiveRole === 'parent' && <ParentDashboard />}
+      <Routes>
+        <Route index element={DASHBOARDS[effectiveRole] ?? DASHBOARDS.student} />
+        <Route path="play" element={<PlayLobby />} />
+        <Route path="play/:id" element={<GamePage />} />
+        {effectiveRole === 'admin' && (
+          <>
+            <Route path="articles" element={<ArticlesAdmin />} />
+            <Route path="leads" element={<LeadsAdmin />} />
+            <Route path="announcements" element={<AnnouncementsAdmin />} />
+          </>
+        )}
+        <Route path="*" element={<Navigate to="/app" replace />} />
+      </Routes>
     </Shell>
   );
 }

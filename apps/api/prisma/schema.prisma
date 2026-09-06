@@ -45,6 +45,8 @@ model User {
   auditLogs      AuditLog[]
   articles       Article[]
   announcements  Announcement[]
+  whiteGames     Game[]         @relation("WhiteGames")
+  blackGames     Game[]         @relation("BlackGames")
 
   @@index([role])
 }
@@ -514,6 +516,44 @@ enum ArticleStatus {
 /// A news post or coaching article. Drafts are visible only to admins;
 /// PUBLISHED rows (with a publishedAt in the past) are served to the
 /// public landing page and /articles routes.
+// ─────────────────────────────────────────────────────────────
+// Chess games — real-time online play between two members
+// ─────────────────────────────────────────────────────────────
+
+enum GameStatus {
+  PENDING // one seat filled, waiting for an opponent
+  ACTIVE
+  FINISHED
+  ABANDONED
+}
+
+enum GameResultType {
+  WHITE_WINS
+  BLACK_WINS
+  DRAW
+}
+
+/// Server-authoritative: `fen` + `pgn` are the source of truth, replayed
+/// through chess.js on every move. One seat is filled at creation; the
+/// other is filled when an opponent joins (PENDING -> ACTIVE).
+model Game {
+  id           String          @id @default(uuid())
+  whiteId      String?
+  white        User?           @relation("WhiteGames", fields: [whiteId], references: [id])
+  blackId      String?
+  black        User?           @relation("BlackGames", fields: [blackId], references: [id])
+  status       GameStatus      @default(PENDING)
+  result       GameResultType?
+  resultReason String? // checkmate | stalemate | resignation | threefold | insufficient-material | fifty-move
+  fen          String          @db.Text
+  pgn          String          @db.Text // movetext; "" until the first move
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  endedAt      DateTime?
+
+  @@index([status, createdAt])
+}
+
 // ─────────────────────────────────────────────────────────────
 // Announcements — admin broadcasts targeted at a role group
 // ─────────────────────────────────────────────────────────────

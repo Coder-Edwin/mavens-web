@@ -1,0 +1,121 @@
+/* Chess play screens — lobby + game board. Reuses tokens.css variables. */
+
+.pl-lobby-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 8px;
+}
+.pl-new {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.pl-new select {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--panel-alt);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+.pl-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+.pl-row:last-child {
+  border-bottom: none;
+}
+.pl-row .meta {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+/* ---------- Game board ---------- */
+.pl-game {
+  display: grid;
+  grid-template-columns: minmax(280px, 520px) 1fr;
+  gap: 20px;
+  align-items: start;
+}
+.pl-board-wrap {
+  width: 100%;
+}
+.pl-seat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 2px;
+  font-size: 13px;
+}
+.pl-seat .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  flex-shrink: 0;
+}
+.pl-seat .dot.w {
+  background: #efefe6;
+}
+.pl-seat .dot.b {
+  background: #2b2b2b;
+}
+.pl-seat.turn {
+  color: var(--gold-soft);
+  font-weight: 600;
+}
+.pl-side {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.pl-movelist {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.9;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.pl-movelist .num {
+  color: var(--muted);
+  margin-right: 6px;
+}
+.pl-movelist .mv {
+  display: inline-block;
+  min-width: 54px;
+}
+.pl-banner {
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--gold);
+  background: var(--panel-alt);
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 13px;
+}
+.pl-banner.win {
+  border-left-color: var(--leaf);
+}
+.pl-banner.lose {
+  border-left-color: var(--red);
+}
+.pl-hint {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+@media (max-width: 860px) {
+  .pl-lobby-grid,
+  .pl-game {
+    grid-template-columns: 1fr;
+  }
+}

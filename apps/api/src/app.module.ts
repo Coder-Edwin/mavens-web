@@ -11,6 +11,7 @@ import { MerchandiseModule } from './modules/merchandise/merchandise.module';
 import { ArticlesModule } from './modules/articles/articles.module';
 import { LeadsModule } from './modules/leads/leads.module';
 import { AnnouncementsModule } from './modules/announcements/announcements.module';
+import { GamesModule } from './modules/games/games.module';
 
 @Module({
   imports: [
@@ -25,7 +26,8 @@ import { AnnouncementsModule } from './modules/announcements/announcements.modul
     MerchandiseModule,
     ArticlesModule,
     LeadsModule,
-    AnnouncementsModule
+    AnnouncementsModule,
+    GamesModule
   ]
 })
 export class AppModule {}
