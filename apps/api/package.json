@@ -8,7 +8,8 @@
     "test:watch": "jest --watch",
     "start:dev": "nodemon --watch src --ext ts --exec \"node -r @swc-node/register src/main.ts\"",
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/main.js"
+    "start": "node dist/main.js",
+    "test:int": "tsx test/backfill-open-challenge.int.ts"
   },
   "keywords": [],
   "author": "",
