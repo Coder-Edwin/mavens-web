@@ -10,7 +10,6 @@ describe('GamesGateway', () => {
     getForUser: jest.Mock;
     applyMove: jest.Mock;
     resign: jest.Mock;
-    cancel: jest.Mock;
   };
   let jwt: { verify: jest.Mock };
 
@@ -35,8 +34,7 @@ describe('GamesGateway', () => {
       get: jest.fn().mockResolvedValue({ id: 'g1', status: 'ACTIVE' }),
       getForUser: jest.fn().mockResolvedValue({ id: 'g1', status: 'ACTIVE' }),
       applyMove: jest.fn(),
-      resign: jest.fn(),
-      cancel: jest.fn()
+      resign: jest.fn()
     };
     jwt = { verify: jest.fn().mockReturnValue({ sub: 'user-1' }) };
 
@@ -117,10 +115,8 @@ describe('GamesGateway', () => {
     expect(emitted.map((e) => e.event)).toEqual(['game:over', 'game:state']);
   });
 
-  it('game:cancel abandons the challenge and broadcasts the new state', async () => {
-    games.cancel.mockResolvedValue({ id: 'g1', status: 'ABANDONED' });
-    await gateway.onCancel(client('tok'), { gameId: 'g1' });
-    expect(games.cancel).toHaveBeenCalledWith('g1', 'user-1');
+  it('broadcastState pushes the authoritative state to the room', () => {
+    gateway.broadcastState('g1', { id: 'g1', status: 'ABANDONED' });
     expect(emitted).toContainEqual({
       target: 'game:g1',
       event: 'game:state',

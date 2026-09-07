@@ -58,8 +58,12 @@ export class GamesService {
   private expireStale() {
     return this.prisma.game.updateMany({
       where: { status: 'PENDING', createdAt: { lt: new Date(Date.now() - PENDING_TTL_MS) } },
-      data: { status: 'ABANDONED', endedAt: new Date() }
+      data: { status: 'ABANDONED', openChallengeOwnerId: null, endedAt: new Date() }
     });
+  }
+
+  private isUniqueViolation(err: unknown): boolean {
+    return !!err && typeof err === 'object' && (err as { code?: string }).code === 'P2002';
   }
 
   /// Replays the stored movetext so the server position is authoritative.
@@ -72,26 +76,43 @@ export class GamesService {
   // ── Lobby ────────────────────────────────────────────────────────────────
 
   async create(userId: string, colorPref: ColorPref = 'random') {
-    // One open challenge per user — retire any earlier unmatched one so the
-    // lobby never fills with a member's dangling challenges.
+    const startedAt = new Date();
+
+    // One open challenge per user. Retire the caller's *pre-existing* open
+    // challenge (created before this call), then claim the slot on the new
+    // row. `openChallengeOwnerId` is unique, so a concurrent create by the
+    // same user loses the insert with P2002 — we hand that caller the game
+    // that won, leaving exactly one PENDING row.
     await this.prisma.game.updateMany({
-      where: { status: 'PENDING', OR: [{ whiteId: userId }, { blackId: userId }] },
-      data: { status: 'ABANDONED', endedAt: new Date() }
+      where: { openChallengeOwnerId: userId, status: 'PENDING', createdAt: { lt: startedAt } },
+      data: { status: 'ABANDONED', openChallengeOwnerId: null, endedAt: new Date() }
     });
 
     let color = colorPref;
     if (color === 'random') color = Math.random() < 0.5 ? 'white' : 'black';
 
-    return this.prisma.game.create({
-      data: {
-        whiteId: color === 'white' ? userId : null,
-        blackId: color === 'black' ? userId : null,
-        status: 'PENDING',
-        fen: new Chess().fen(),
-        pgn: ''
-      },
-      include: PLAYER_SELECT
-    });
+    try {
+      return await this.prisma.game.create({
+        data: {
+          whiteId: color === 'white' ? userId : null,
+          blackId: color === 'black' ? userId : null,
+          status: 'PENDING',
+          openChallengeOwnerId: userId,
+          fen: new Chess().fen(),
+          pgn: ''
+        },
+        include: PLAYER_SELECT
+      });
+    } catch (err) {
+      if (this.isUniqueViolation(err)) {
+        const existing = await this.prisma.game.findFirst({
+          where: { openChallengeOwnerId: userId, status: 'PENDING' },
+          include: PLAYER_SELECT
+        });
+        if (existing) return existing;
+      }
+      throw err;
+    }
   }
 
   /// Open challenges from other members + the caller's own pending/active games.
@@ -150,10 +171,11 @@ export class GamesService {
     const seat = game.whiteId ? 'blackId' : 'whiteId';
 
     // Claim the seat atomically: the row must still be PENDING with that seat
-    // empty. If a concurrent joiner won it, count is 0.
+    // empty. If a concurrent joiner won it, count is 0. Clearing
+    // openChallengeOwnerId frees the creator's "one open challenge" slot.
     const claimed = await this.prisma.game.updateMany({
       where: { id, status: 'PENDING', [seat]: null },
-      data: { [seat]: userId, status: 'ACTIVE' }
+      data: { [seat]: userId, status: 'ACTIVE', openChallengeOwnerId: null }
     });
     if (claimed.count === 0) {
       throw new ConflictException('Someone just joined this game');
@@ -253,7 +275,7 @@ export class GamesService {
     // PENDING — report a conflict rather than abandoning a live game.
     const done = await this.prisma.game.updateMany({
       where: { id, status: 'PENDING' },
-      data: { status: 'ABANDONED', endedAt: new Date() }
+      data: { status: 'ABANDONED', openChallengeOwnerId: null, endedAt: new Date() }
     });
     if (done.count === 0) {
       throw new ConflictException('Someone just joined this game');

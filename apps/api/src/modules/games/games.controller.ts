@@ -2,12 +2,16 @@ import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { GamesService } from './games.service';
+import { GamesGateway } from './games.gateway';
 import { CreateGameDto } from './dto/create-game.dto';
 
 @Controller('games')
 @UseGuards(JwtAuthGuard)
 export class GamesController {
-  constructor(private readonly gamesService: GamesService) {}
+  constructor(
+    private readonly gamesService: GamesService,
+    private readonly gamesGateway: GamesGateway
+  ) {}
 
   // POST /api/v1/games — open a new challenge (caller takes one seat)
   @Post()
@@ -34,9 +38,12 @@ export class GamesController {
     return this.gamesService.join(id, user.userId);
   }
 
-  // POST /api/v1/games/:id/cancel — withdraw your own pending challenge
+  // POST /api/v1/games/:id/cancel — withdraw your own pending challenge.
+  // Broadcast the resulting ABANDONED state so any room viewer sees it too.
   @Post(':id/cancel')
-  cancel(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
-    return this.gamesService.cancel(id, user.userId);
+  async cancel(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    const game = await this.gamesService.cancel(id, user.userId);
+    this.gamesGateway.broadcastState(id, game);
+    return game;
   }
 }

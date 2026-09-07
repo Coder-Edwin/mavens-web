@@ -69,7 +69,6 @@ vi.mock('@/lib/games', async (importOriginal) => {
     connectGameSocket: () => ({
       move: vi.fn(),
       resign: vi.fn(),
-      cancel: vi.fn(),
       rejoin: vi.fn(),
       disconnect: vi.fn()
     })

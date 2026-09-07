@@ -23,6 +23,7 @@ function gameRow(over: Partial<Record<string, unknown>> = {}) {
     fen: new Chess().fen(),
     pgn: '',
     revision: 0,
+    openChallengeOwnerId: null,
     createdAt: new Date(), // "fresh" — not stale
     endedAt: null,
     ...over
@@ -53,6 +54,7 @@ describe('GamesService', () => {
     game: {
       create: jest.Mock;
       findUnique: jest.Mock;
+      findFirst: jest.Mock;
       findMany: jest.Mock;
       updateMany: jest.Mock;
     };
@@ -64,6 +66,7 @@ describe('GamesService', () => {
       game: {
         create: jest.fn((a) => Promise.resolve({ id: 'g1', ...a.data })),
         findUnique: jest.fn(() => Promise.resolve(row ? { ...row } : null)),
+        findFirst: jest.fn(() => Promise.resolve(row ? { ...row } : null)),
         findMany: jest.fn().mockResolvedValue([]),
         // Models a conditional UPDATE ... WHERE against the single `row`.
         updateMany: jest.fn((a: { where: Record<string, any>; data: Record<string, any> }) => {
@@ -72,6 +75,8 @@ describe('GamesService', () => {
           if (w.id && row.id !== w.id) return Promise.resolve({ count: 0 });
           if (w.status && row.status !== w.status) return Promise.resolve({ count: 0 });
           if ('revision' in w && row.revision !== w.revision) return Promise.resolve({ count: 0 });
+          if ('openChallengeOwnerId' in w && row.openChallengeOwnerId !== w.openChallengeOwnerId)
+            return Promise.resolve({ count: 0 });
           if (w.createdAt?.lt && !(row.createdAt < w.createdAt.lt)) return Promise.resolve({ count: 0 });
           if (
             w.OR &&
@@ -103,12 +108,13 @@ describe('GamesService', () => {
   afterEach(() => jest.clearAllMocks());
 
   describe('create', () => {
-    it('seats the creator as white when they ask for white', async () => {
+    it('seats the creator as white when they ask for white and claims the challenge slot', async () => {
       await service.create(WHITE, 'white');
       const data = prisma.game.create.mock.calls[0][0].data;
       expect(data.whiteId).toBe(WHITE);
       expect(data.blackId).toBeNull();
       expect(data.status).toBe('PENDING');
+      expect(data.openChallengeOwnerId).toBe(WHITE);
     });
 
     it('random always seats the creator in exactly one seat', async () => {
@@ -122,12 +128,33 @@ describe('GamesService', () => {
       }
     });
 
-    it('retires the creator’s earlier open challenge first (one open challenge per user)', async () => {
+    it('retires the creator’s pre-existing open challenge first (one open challenge per user)', async () => {
       await service.create(WHITE, 'white');
       expect(prisma.game.updateMany).toHaveBeenCalledWith({
-        where: { status: 'PENDING', OR: [{ whiteId: WHITE }, { blackId: WHITE }] },
-        data: { status: 'ABANDONED', endedAt: expect.any(Date) }
+        where: { openChallengeOwnerId: WHITE, status: 'PENDING', createdAt: { lt: expect.any(Date) } },
+        data: { status: 'ABANDONED', openChallengeOwnerId: null, endedAt: expect.any(Date) }
       });
+    });
+
+    it('leaves exactly one pending game when the same user creates twice concurrently', async () => {
+      // model the DB unique constraint on openChallengeOwnerId
+      let slotTaken = false;
+      const winner = gameRow({ id: 'g-open', status: 'PENDING', blackId: null, openChallengeOwnerId: WHITE });
+      prisma.game.create.mockImplementation((a: { data: Record<string, any> }) => {
+        if (a.data.openChallengeOwnerId === WHITE && slotTaken) {
+          return Promise.reject(Object.assign(new Error('Unique constraint failed'), { code: 'P2002' }));
+        }
+        slotTaken = true;
+        row = winner;
+        return Promise.resolve(winner);
+      });
+      prisma.game.findFirst.mockResolvedValue(winner);
+
+      const [a, b] = await Promise.all([service.create(WHITE, 'white'), service.create(WHITE, 'black')]);
+
+      expect(prisma.game.create).toHaveBeenCalledTimes(2);
+      expect(a).toMatchObject({ id: 'g-open' });
+      expect(b).toMatchObject({ id: 'g-open' }); // the loser got handed the winner's game
     });
   });
 
@@ -155,9 +182,9 @@ describe('GamesService', () => {
 
       expect(prisma.game.updateMany).toHaveBeenCalledWith({
         where: { id: 'g1', status: 'PENDING', blackId: null },
-        data: { blackId: BLACK, status: 'ACTIVE' }
+        data: { blackId: BLACK, status: 'ACTIVE', openChallengeOwnerId: null }
       });
-      expect(row).toMatchObject({ blackId: BLACK, status: 'ACTIVE' });
+      expect(row).toMatchObject({ blackId: BLACK, status: 'ACTIVE', openChallengeOwnerId: null });
     });
 
     it('reports a conflict instead of overwriting when the seat was taken concurrently', async () => {
@@ -174,7 +201,7 @@ describe('GamesService', () => {
       await service.listForUser(WHITE);
       expect(prisma.game.updateMany).toHaveBeenCalledWith({
         where: { status: 'PENDING', createdAt: { lt: expect.any(Date) } },
-        data: { status: 'ABANDONED', endedAt: expect.any(Date) }
+        data: { status: 'ABANDONED', openChallengeOwnerId: null, endedAt: expect.any(Date) }
       });
     });
 
@@ -331,7 +358,7 @@ describe('GamesService', () => {
       const g = await service.cancel('g1', WHITE);
       expect(prisma.game.updateMany).toHaveBeenCalledWith({
         where: { id: 'g1', status: 'PENDING' },
-        data: { status: 'ABANDONED', endedAt: expect.any(Date) }
+        data: { status: 'ABANDONED', openChallengeOwnerId: null, endedAt: expect.any(Date) }
       });
       expect(g).toMatchObject({ status: 'ABANDONED' });
     });

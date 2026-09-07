@@ -118,8 +118,9 @@ export function GamePage() {
     setCancelling(true);
     setError(null);
     try {
+      // The REST layer broadcasts the ABANDONED game:state to the room, so
+      // any viewer of the shared link updates without us emitting anything.
       await gamesApi.cancel(game.id);
-      socket.current?.cancel(); // let any room viewer know it's gone
       navigate('/app/play');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not cancel this challenge.');

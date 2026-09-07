@@ -91,19 +91,11 @@ export class GamesGateway {
     }
   }
 
-  @SubscribeMessage('game:cancel')
-  async onCancel(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() body: { gameId: string }
-  ) {
-    const uid = this.userId(client);
-    if (!uid) return client.emit('game:error', { message: 'Not authenticated' });
-    try {
-      const game = await this.games.cancel(body.gameId, uid);
-      this.server.to(room(body.gameId)).emit('game:state', game);
-    } catch (err) {
-      client.emit('game:error', { message: (err as Error)?.message ?? 'Could not cancel' });
-    }
+  /// Push the authoritative game state to everyone in the room. Called by the
+  /// REST layer after a mutation that has no originating socket message
+  /// (e.g. a lobby-initiated cancel).
+  broadcastState(gameId: string, game: unknown) {
+    this.server?.to(room(gameId)).emit('game:state', game);
   }
 
   @SubscribeMessage('game:resign')

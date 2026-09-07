@@ -44,7 +44,6 @@ vi.mock('@/lib/games', async (importOriginal) => {
       return {
         move: (m: { from: string; to: string }) => socketMoves.push(m),
         resign: () => socketCalls.push('resign'),
-        cancel: () => socketCalls.push('cancel'),
         rejoin: () => socketCalls.push('rejoin'),
         disconnect: vi.fn()
       };
@@ -76,6 +75,7 @@ function renderGame() {
   return render(
     <MemoryRouter initialEntries={['/app/play/g1']}>
       <Routes>
+        <Route path="/app/play" element={<div>LOBBY</div>} />
         <Route path="/app/play/:id" element={<GamePage />} />
       </Routes>
     </MemoryRouter>
@@ -161,7 +161,7 @@ describe('GamePage', () => {
     expect(await screen.findByRole('button', { name: /copy game link/i })).toBeInTheDocument();
   });
 
-  it('lets the waiting creator cancel the challenge', async () => {
+  it('lets the waiting creator cancel the challenge and returns to the lobby', async () => {
     getImpl = async () => ({ ...activeGame, status: 'PENDING', blackId: null, black: null });
     const user = userEvent.setup();
     renderGame();
@@ -169,7 +169,20 @@ describe('GamePage', () => {
     await user.click(await screen.findByRole('button', { name: /cancel challenge/i }));
 
     expect(gamesApiCalls).toContainEqual({ fn: 'cancel', arg: 'g1' });
-    expect(socketCalls).toContain('cancel');
+    // no second socket-initiated cancel — the REST layer broadcasts the state
+    expect(socketCalls).not.toContain('cancel');
+    expect(await screen.findByText('LOBBY')).toBeInTheDocument();
+  });
+
+  it('shows a "no longer available" notice when the game becomes ABANDONED', async () => {
+    getImpl = async () => ({ ...activeGame, status: 'PENDING', blackId: null, black: null });
+    renderGame();
+    await screen.findByRole('button', { name: /cancel challenge/i });
+
+    // the REST-layer broadcast arrives as a game:state
+    capturedHandlers.onState?.({ ...activeGame, status: 'ABANDONED', blackId: null, black: null });
+
+    expect(await screen.findByText(/no longer available/i)).toBeInTheDocument();
   });
 
   it('lets a non-participant open a shared PENDING game and join it', async () => {
