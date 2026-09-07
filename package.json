@@ -1,12 +1,21 @@
 {
   "name": "mavens-chess-club",
   "private": true,
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "//": "apps/web targets React 18. Test/router tooling and Prisma 7's studio deps would otherwise hoist a second React (19) + its @types to the workspace root and break apps/web's types and renderer. These overrides keep one copy. Specs are kept identical in apps/web/package.json so npm applies the override.",
   "overrides": {
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "@types/react": "18.3.12",
-    "@types/react-dom": "18.3.1"
+    "@types/react-dom": "18.3.1",
+    "typescript": "6.0.3"
+  },
+  "scripts": {
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present"
   }
 }

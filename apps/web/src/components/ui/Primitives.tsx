@@ -92,18 +92,22 @@ export function Button({
   variant = 'gold',
   size,
   onClick,
+  disabled,
+  type = 'button',
   children
 }: {
   variant?: 'gold' | 'ghost';
   size?: 'sm';
   onClick?: () => void;
+  disabled?: boolean;
+  type?: 'button' | 'submit';
   children: ReactNode;
 }) {
   const classes = ['btn', variant === 'gold' ? 'btn-gold' : 'btn-ghost', size === 'sm' ? 'btn-sm' : '']
     .filter(Boolean)
     .join(' ');
   return (
-    <button className={classes} onClick={onClick}>
+    <button className={classes} onClick={onClick} disabled={disabled} type={type}>
       {children}
     </button>
   );

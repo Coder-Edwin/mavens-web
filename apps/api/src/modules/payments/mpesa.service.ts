@@ -7,6 +7,15 @@ interface StkPushResult {
   responseDescription: string;
 }
 
+/// Shape of the Daraja STK-push response body (success and error share it).
+interface DarajaStkPushResponse {
+  MerchantRequestID?: string;
+  CheckoutRequestID?: string;
+  ResponseCode?: string;
+  ResponseDescription?: string;
+  errorMessage?: string;
+}
+
 @Injectable()
 export class MpesaService {
   private readonly logger = new Logger(MpesaService.name);
@@ -100,7 +109,7 @@ export class MpesaService {
       })
     });
 
-    const data = await res.json();
+    const data = (await res.json()) as DarajaStkPushResponse;
 
     if (!res.ok || data.ResponseCode !== '0') {
       this.logger.error(`STK push rejected: ${JSON.stringify(data)}`);
@@ -108,10 +117,10 @@ export class MpesaService {
     }
 
     return {
-      merchantRequestId: data.MerchantRequestID,
-      checkoutRequestId: data.CheckoutRequestID,
-      responseCode: data.ResponseCode,
-      responseDescription: data.ResponseDescription
+      merchantRequestId: data.MerchantRequestID ?? '',
+      checkoutRequestId: data.CheckoutRequestID ?? '',
+      responseCode: data.ResponseCode ?? '',
+      responseDescription: data.ResponseDescription ?? ''
     };
   }
 }

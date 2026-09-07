@@ -84,7 +84,7 @@ describe('PlayLobby', () => {
     renderLobby();
 
     expect(await screen.findByText(/vs opp@x\.com/i)).toBeInTheDocument();
-    const openPanel = screen.getByText('Open challenges').closest('.panel')!;
+    const openPanel = screen.getByText('Open challenges').closest('.panel') as HTMLElement;
     expect(within(openPanel).getByText('stranger@x.com')).toBeInTheDocument();
     expect(within(openPanel).getByRole('button', { name: /join/i })).toBeInTheDocument();
   });
@@ -97,7 +97,7 @@ describe('PlayLobby', () => {
     const user = userEvent.setup();
     renderLobby();
 
-    const yourPanel = (await screen.findByText('Your games')).closest('.panel')!;
+    const yourPanel = (await screen.findByText('Your games')).closest('.panel') as HTMLElement;
     expect(within(yourPanel).getByText('Open challenge')).toBeInTheDocument();
     expect(within(yourPanel).getByText(/waiting to be joined/i)).toBeInTheDocument();
 

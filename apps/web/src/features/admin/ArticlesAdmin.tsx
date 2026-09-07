@@ -185,7 +185,7 @@ export function ArticlesAdmin() {
               <input
                 id="art-cover"
                 style={inputStyle}
-                value={form.coverImageUrl}
+                value={form.coverImageUrl ?? ''}
                 onChange={(e) => setForm((f) => ({ ...f, coverImageUrl: e.target.value }))}
                 placeholder="https://…"
               />
