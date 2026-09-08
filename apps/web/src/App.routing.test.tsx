@@ -158,6 +158,33 @@ vi.mock('@/lib/tournaments', async (importOriginal) => {
   };
 });
 
+vi.mock('@/lib/reports', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/reports')>();
+  return {
+    ...actual,
+    reportsApi: {
+      ...actual.reportsApi,
+      overview: vi.fn().mockResolvedValue({
+        students: { total: 0, byLevel: {} },
+        enrollments: { byStatus: {}, byDelivery: {} },
+        coaches: { byEmployment: {} },
+        schedule: { activeSchedules: 0, sessionsThisMonth: {} },
+        placements: { scheduled: 0, overdueReviews: 0 },
+        billing: { invoicesByStatus: {}, outstanding: 0, paymentsReceivedAllTime: 0 },
+        payouts: { latestRunTotal: 0, unpaidApprovedTotal: 0 },
+        leads: { byStatus: {} }
+      }),
+      revenue: vi.fn().mockResolvedValue([]),
+      coachActivity: vi.fn().mockResolvedValue([]),
+      funnel: vi.fn().mockResolvedValue({
+        leads: { total: 0, byStatus: {}, converted: 0 },
+        placements: { scheduled: 0, completed: 0 },
+        enrollments: { total: 0, active: 0 }
+      })
+    }
+  };
+});
+
 vi.mock('@/lib/announcements', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/announcements')>();
   return {
@@ -352,6 +379,12 @@ describe('AppRoutes', () => {
     seedSession('ADMIN');
     renderAt('/app/tournaments');
     expect(await screen.findByRole('button', { name: /new tournament/i })).toBeInTheDocument();
+  });
+
+  it('renders the reports dashboard at /app/reports for a signed-in admin', async () => {
+    seedSession('ADMIN');
+    renderAt('/app/reports');
+    expect(await screen.findByRole('button', { name: /students csv/i })).toBeInTheDocument();
   });
 
   it('gives every signed-in role the play lobby at /app/play', async () => {
