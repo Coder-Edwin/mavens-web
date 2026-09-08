@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Panel } from "@/components/ui/Primitives";
 import { AnnouncementsPanel } from "@/components/AnnouncementsPanel";
 import { MyEnrollmentsPanel } from "@/components/MyEnrollmentsPanel";
+import { SessionAgenda } from "@/components/SessionAgenda";
 import { api, ApiError } from "@/lib/api-client";
 
 interface StudentSummary {
@@ -192,6 +193,8 @@ export function CoachDashboard() {
         title="Assigned enrollments"
         emptyText="No enrollments are assigned to you yet."
       />
+
+      <SessionAgenda scope="own" title="My week" />
 
       <div className="grid-2">
         <Panel title="Log a Session">

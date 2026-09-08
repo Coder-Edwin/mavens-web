@@ -17,6 +17,7 @@ import { PlacementsAdmin } from '@/features/admin/PlacementsAdmin';
 import { CoachesAdmin } from '@/features/admin/CoachesAdmin';
 import { TermsAdmin } from '@/features/admin/TermsAdmin';
 import { ClassSchedulesAdmin } from '@/features/admin/ClassSchedulesAdmin';
+import { SchedulePage } from '@/features/admin/SchedulePage';
 import { CoachDashboard } from '@/features/coach/CoachDashboard';
 import { StudentDashboard } from '@/features/student/StudentDashboard';
 import { ParentDashboard } from '@/features/parent/ParentDashboard';
@@ -63,6 +64,7 @@ function AuthenticatedApp() {
             <Route path="coaches" element={<CoachesAdmin />} />
             <Route path="terms" element={<TermsAdmin />} />
             <Route path="class-schedules" element={<ClassSchedulesAdmin />} />
+            <Route path="schedule" element={<SchedulePage />} />
           </>
         )}
         <Route path="*" element={<Navigate to="/app" replace />} />
