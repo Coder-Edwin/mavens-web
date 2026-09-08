@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -7,6 +7,11 @@ import { TournamentsService } from './tournaments.service';
 import { CreateTournamentDto } from './dto/create-tournament.dto';
 import { RegisterTournamentDto } from './dto/register-tournament.dto';
 import { RecordResultDto } from './dto/record-result.dto';
+import {
+  RecordPairingResultDto,
+  UpdateRegistrationDto,
+  UpdateTournamentDto
+} from './dto/rounds.dto';
 
 @Controller('tournaments')
 @UseGuards(JwtAuthGuard)
@@ -56,5 +61,60 @@ export class TournamentsController {
     @Body() dto: RecordResultDto
   ) {
     return this.tournamentsService.recordResult(id, registrationId, dto);
+  }
+
+  // ---- Swiss rounds (admin manages; reads open to any signed-in role) ----
+
+  @Patch(':id')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
+  update(@Param('id') id: string, @Body() dto: UpdateTournamentDto) {
+    return this.tournamentsService.updateTournament(id, dto);
+  }
+
+  @Patch(':id/registrations/:registrationId')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
+  updateRegistration(
+    @Param('id') id: string,
+    @Param('registrationId') registrationId: string,
+    @Body() dto: UpdateRegistrationDto
+  ) {
+    return this.tournamentsService.updateRegistration(id, registrationId, dto);
+  }
+
+  @Get(':id/rounds')
+  listRounds(@Param('id') id: string) {
+    return this.tournamentsService.listRounds(id);
+  }
+
+  @Get(':id/standings')
+  standings(@Param('id') id: string) {
+    return this.tournamentsService.standings(id);
+  }
+
+  @Post(':id/rounds')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
+  pairNextRound(@Param('id') id: string) {
+    return this.tournamentsService.pairNextRound(id);
+  }
+
+  @Delete(':id/rounds/:roundId')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
+  deleteRound(@Param('id') id: string, @Param('roundId') roundId: string) {
+    return this.tournamentsService.deleteRound(id, roundId);
+  }
+
+  @Patch(':id/pairings/:pairingId')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
+  recordPairingResult(
+    @Param('id') id: string,
+    @Param('pairingId') pairingId: string,
+    @Body() dto: RecordPairingResultDto
+  ) {
+    return this.tournamentsService.recordPairingResult(id, pairingId, dto);
   }
 }

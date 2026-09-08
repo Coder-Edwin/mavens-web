@@ -290,10 +290,12 @@ model Tournament {
   venue               String
   feeAmount            Decimal  @db.Decimal(10, 2)
   capacity            Int?
+  totalRounds         Int? // planned Swiss rounds
   registrationDeadline DateTime?
   createdAt           DateTime @default(now())
 
   registrations TournamentRegistration[]
+  rounds        TournamentRound[]
 }
 
 model TournamentRegistration {
@@ -303,11 +305,59 @@ model TournamentRegistration {
   studentId    String
   student      StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
   registeredAt DateTime       @default(now())
-  result       String?
+  result       String? // legacy free-text result; standings now derive from pairings
+  seed         Int? // seeding order / rating rank; lower = stronger
+  withdrawn    Boolean        @default(false)
   paymentId    String?        @unique
   payment      Payment?       @relation(fields: [paymentId], references: [id])
 
+  whitePairings TournamentPairing[] @relation("WhitePlayer")
+  blackPairings TournamentPairing[] @relation("BlackPlayer")
+
   @@unique([tournamentId, studentId])
+}
+
+enum RoundStatus {
+  PENDING
+  PAIRED
+  COMPLETED
+}
+
+enum PairingResult {
+  WHITE_WIN
+  BLACK_WIN
+  DRAW
+  BYE
+}
+
+model TournamentRound {
+  id           String      @id @default(uuid())
+  tournamentId String
+  tournament   Tournament  @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  number       Int
+  status       RoundStatus @default(PAIRED)
+  createdAt    DateTime    @default(now())
+
+  pairings TournamentPairing[]
+
+  @@unique([tournamentId, number])
+}
+
+model TournamentPairing {
+  id                  String                  @id @default(uuid())
+  roundId             String
+  round               TournamentRound         @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  board               Int
+  whiteRegistrationId String
+  white               TournamentRegistration  @relation("WhitePlayer", fields: [whiteRegistrationId], references: [id], onDelete: Cascade)
+  blackRegistrationId String?
+  black               TournamentRegistration? @relation("BlackPlayer", fields: [blackRegistrationId], references: [id], onDelete: Cascade)
+  result              PairingResult?
+  createdAt           DateTime                @default(now())
+
+  @@index([roundId, board])
+  @@index([whiteRegistrationId])
+  @@index([blackRegistrationId])
 }
 
 // ─────────────────────────────────────────────────────────────
