@@ -9,7 +9,7 @@ type EffectiveRole = 'admin' | 'coach' | 'student' | 'parent';
 const NAV_ITEMS: Record<EffectiveRole, { glyph: string; label: string; to?: string }[]> = {
   admin: [
     { glyph: '♔', label: 'Overview', to: '/app' },
-    { glyph: '♞', label: 'Coaches' },
+    { glyph: '♞', label: 'Coaches', to: '/app/coaches' },
     { glyph: '♟', label: 'Students' },
     { glyph: '♘', label: 'Enrollments', to: '/app/enrollments' },
     { glyph: '♗', label: 'Placement queue', to: '/app/placements' },

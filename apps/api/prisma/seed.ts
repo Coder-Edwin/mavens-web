@@ -12,7 +12,9 @@ async function main() {
 
   const amwai = await prisma.user.upsert({
     where: { email: 'amwai@mavenschessclub.com' },
-    update: {},
+    update: {
+      coachProfile: { update: { firstName: 'Tom', lastName: 'Amwai' } }
+    },
     create: {
       email: 'amwai@mavenschessclub.com',
       passwordHash,
@@ -20,6 +22,8 @@ async function main() {
       isCoach: true,
       coachProfile: {
         create: {
+          firstName: 'Tom',
+          lastName: 'Amwai',
           bio: 'Founder and head coach at Mavens Chess Club.'
         }
       }

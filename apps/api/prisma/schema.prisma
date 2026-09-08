@@ -55,6 +55,9 @@ model CoachProfile {
   id             String         @id @default(uuid())
   userId         String         @unique
   user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName      String? // nullable for now: legacy coaches (seed) have no name split
+  lastName       String?
+  phone          String? // contact number, separate from the login on User
   bio            String?        @db.Text
   specialty      String?
   employmentType EmploymentType @default(STAFF) // STAFF -> payroll, CONSULTANT -> per-session invoice

@@ -61,6 +61,14 @@ vi.mock('@/lib/school-groups', async (importOriginal) => {
   };
 });
 
+vi.mock('@/lib/coaches', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/coaches')>();
+  return {
+    ...actual,
+    coachesApi: { list: () => Promise.resolve([]), get: vi.fn(), create: vi.fn(), update: vi.fn() }
+  };
+});
+
 const enrollment = (over: Partial<Enrollment>): Enrollment => ({
   id: 'en1',
   studentId: 'stu1',

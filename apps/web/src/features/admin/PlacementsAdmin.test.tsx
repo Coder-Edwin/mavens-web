@@ -49,6 +49,14 @@ vi.mock('@/lib/students', async (importOriginal) => {
   };
 });
 
+vi.mock('@/lib/coaches', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/coaches')>();
+  return {
+    ...actual,
+    coachesApi: { list: () => Promise.resolve([]), get: vi.fn(), create: vi.fn(), update: vi.fn() }
+  };
+});
+
 const assessment = (over: Partial<PlacementAssessment>): PlacementAssessment => ({
   id: 'pa1',
   studentId: 'stu1',

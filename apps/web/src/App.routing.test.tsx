@@ -82,6 +82,14 @@ vi.mock('@/lib/students', async (importOriginal) => {
   };
 });
 
+vi.mock('@/lib/coaches', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/coaches')>();
+  return {
+    ...actual,
+    coachesApi: { ...actual.coachesApi, list: vi.fn().mockResolvedValue([]) }
+  };
+});
+
 vi.mock('@/lib/announcements', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/announcements')>();
   return {
@@ -216,6 +224,12 @@ describe('AppRoutes', () => {
     seedSession('ADMIN');
     renderAt('/app/school-groups');
     expect(await screen.findByRole('button', { name: /new school group/i })).toBeInTheDocument();
+  });
+
+  it('renders the coaches admin at /app/coaches for a signed-in admin', async () => {
+    seedSession('ADMIN');
+    renderAt('/app/coaches');
+    expect(await screen.findByRole('button', { name: /new coach/i })).toBeInTheDocument();
   });
 
   it('gives every signed-in role the play lobby at /app/play', async () => {

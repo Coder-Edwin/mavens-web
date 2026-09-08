@@ -12,6 +12,7 @@ import {
 } from '@/lib/placements';
 import { LEVEL_LABEL, STUDENT_LEVELS, formatCrmDate, type StudentLevel } from '@/lib/enrollments';
 import { studentsApi, studentName, type StudentRecord } from '@/lib/students';
+import { coachesApi, coachName, type Coach } from '@/lib/coaches';
 import { inputStyle, labelStyle, mutedNote, rowActions } from './crmStyles';
 
 type Tab = 'SCHEDULED' | 'COMPLETED' | 'CANCELLED' | 'DUE' | 'ALL';
@@ -23,11 +24,17 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'ALL', label: 'All' }
 ];
 
-const EMPTY_FORM: SchedulePlacementInput = { studentId: '', scheduledFor: '', notes: '' };
+const EMPTY_FORM: SchedulePlacementInput = {
+  studentId: '',
+  scheduledFor: '',
+  assessorCoachId: '',
+  notes: ''
+};
 
 export function PlacementsAdmin() {
   const [rows, setRows] = useState<PlacementAssessment[] | null>(null);
   const [students, setStudents] = useState<StudentRecord[]>([]);
+  const [coaches, setCoaches] = useState<Coach[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('SCHEDULED');
   const [showForm, setShowForm] = useState(false);
@@ -53,11 +60,13 @@ export function PlacementsAdmin() {
 
   useEffect(() => {
     refresh('SCHEDULED');
-    studentsApi
-      .list()
-      .then(setStudents)
+    Promise.all([studentsApi.list(), coachesApi.list()])
+      .then(([s, c]) => {
+        setStudents(s);
+        setCoaches(c);
+      })
       .catch(() => {
-        /* picker stays empty */
+        /* pickers stay empty */
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -76,6 +85,7 @@ export function PlacementsAdmin() {
       await placementsApi.schedule({
         studentId: form.studentId,
         scheduledFor: form.scheduledFor ? new Date(form.scheduledFor).toISOString() : undefined,
+        assessorCoachId: form.assessorCoachId || undefined,
         notes: form.notes?.trim() || undefined
       });
       setShowForm(false);
@@ -188,6 +198,23 @@ export function PlacementsAdmin() {
                 value={form.scheduledFor}
                 onChange={(e) => setForm((f) => ({ ...f, scheduledFor: e.target.value }))}
               />
+
+              <label style={labelStyle} htmlFor="pa-assessor">
+                Assessor <span style={{ opacity: 0.6 }}>— optional</span>
+              </label>
+              <select
+                id="pa-assessor"
+                style={inputStyle}
+                value={form.assessorCoachId ?? ''}
+                onChange={(e) => setForm((f) => ({ ...f, assessorCoachId: e.target.value || undefined }))}
+              >
+                <option value="">Unassigned</option>
+                {coaches.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {coachName(c)}
+                  </option>
+                ))}
+              </select>
 
               <label style={labelStyle} htmlFor="pa-notes">
                 Notes <span style={{ opacity: 0.6 }}>— optional</span>

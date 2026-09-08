@@ -97,6 +97,9 @@ export function AdminOverview() {
           <div className="page-title">Club Overview</div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <Link to="/app/coaches" className="btn btn-ghost btn-sm">
+            Coaches
+          </Link>
           <Link to="/app/enrollments" className="btn btn-ghost btn-sm">
             Enrollments
           </Link>

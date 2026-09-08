@@ -20,6 +20,7 @@ import {
 } from '@/lib/enrollments';
 import { schoolGroupsApi, type SchoolGroup } from '@/lib/school-groups';
 import { studentsApi, studentName, type StudentRecord } from '@/lib/students';
+import { coachesApi, coachName, type Coach } from '@/lib/coaches';
 import { inputStyle, labelStyle, mutedNote, rowActions } from './crmStyles';
 
 const EVENT_LABEL: Record<string, string> = {
@@ -47,6 +48,7 @@ export function EnrollmentsAdmin() {
   const [rows, setRows] = useState<Enrollment[] | null>(null);
   const [students, setStudents] = useState<StudentRecord[]>([]);
   const [groups, setGroups] = useState<SchoolGroup[]>([]);
+  const [coaches, setCoaches] = useState<Coach[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<EnrollmentStatus | 'ALL'>('ALL');
   const [showForm, setShowForm] = useState(false);
@@ -55,6 +57,7 @@ export function EnrollmentsAdmin() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [placeLevel, setPlaceLevel] = useState<StudentLevel>('NOVICE');
+  const [placeCoachId, setPlaceCoachId] = useState<string>('');
 
   async function refresh(next: EnrollmentStatus | 'ALL' = filter) {
     try {
@@ -67,10 +70,11 @@ export function EnrollmentsAdmin() {
 
   useEffect(() => {
     refresh('ALL');
-    Promise.all([studentsApi.list(), schoolGroupsApi.list()])
-      .then(([s, g]) => {
+    Promise.all([studentsApi.list(), schoolGroupsApi.list(), coachesApi.list()])
+      .then(([s, g, c]) => {
         setStudents(s);
         setGroups(g);
+        setCoaches(c);
       })
       .catch(() => {
         /* pickers stay empty; the list still works */
@@ -83,6 +87,12 @@ export function EnrollmentsAdmin() {
     students.forEach((s) => m.set(s.id, s));
     return m;
   }, [students]);
+
+  const coachById = useMemo(() => {
+    const m = new Map<string, Coach>();
+    coaches.forEach((c) => m.set(c.id, c));
+    return m;
+  }, [coaches]);
 
   function changeFilter(next: EnrollmentStatus | 'ALL') {
     setFilter(next);
@@ -98,6 +108,7 @@ export function EnrollmentsAdmin() {
     }
     setExpandedId(id);
     setPlaceLevel('NOVICE');
+    setPlaceCoachId('');
     try {
       const full = await enrollmentsApi.get(id);
       setRows((prev) => prev?.map((r) => (r.id === id ? full : r)) ?? prev);
@@ -115,6 +126,7 @@ export function EnrollmentsAdmin() {
       deliveryType: form.deliveryType,
       schoolGroupId: form.deliveryType === 'SCHOOL_GROUP' ? form.schoolGroupId : undefined,
       level: form.level || undefined,
+      assignedCoachId: form.assignedCoachId || undefined,
       waitlisted: form.waitlisted || undefined,
       note: form.note?.trim() || undefined
     };
@@ -268,6 +280,25 @@ export function EnrollmentsAdmin() {
                 ))}
               </select>
 
+              <label style={labelStyle} htmlFor="en-coach">
+                Assigned coach <span style={{ opacity: 0.6 }}>— optional</span>
+              </label>
+              <select
+                id="en-coach"
+                style={inputStyle}
+                value={form.assignedCoachId ?? ''}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, assignedCoachId: e.target.value || undefined }))
+                }
+              >
+                <option value="">Unassigned</option>
+                {coaches.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {coachName(c)}
+                  </option>
+                ))}
+              </select>
+
               <label style={{ ...labelStyle, display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
                 <input
                   type="checkbox"
@@ -353,7 +384,14 @@ export function EnrollmentsAdmin() {
                           </div>
                         )}
                       </td>
-                      <td style={{ fontSize: 13 }}>{r.level ? LEVEL_LABEL[r.level] : '—'}</td>
+                      <td style={{ fontSize: 13 }}>
+                        {r.level ? LEVEL_LABEL[r.level] : '—'}
+                        {r.assignedCoachId && coachById.get(r.assignedCoachId) && (
+                          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+                            {coachName(coachById.get(r.assignedCoachId)!)}
+                          </div>
+                        )}
+                      </td>
                       <td>
                         <Chip status={chip.cls} label={chip.label} />
                       </td>
@@ -384,12 +422,28 @@ export function EnrollmentsAdmin() {
                                     </option>
                                   ))}
                                 </select>
+                                <select
+                                  aria-label="Assign coach"
+                                  value={placeCoachId}
+                                  onChange={(e) => setPlaceCoachId(e.target.value)}
+                                  style={{ ...inputStyle, width: 'auto', margin: 0, padding: '6px 8px' }}
+                                >
+                                  <option value="">No coach yet</option>
+                                  {coaches.map((c) => (
+                                    <option key={c.id} value={c.id}>
+                                      {coachName(c)}
+                                    </option>
+                                  ))}
+                                </select>
                                 <button
                                   className="btn btn-gold btn-sm"
                                   disabled={busyId === r.id}
                                   onClick={() =>
                                     runAction(r.id, () =>
-                                      enrollmentsApi.place(r.id, { level: placeLevel })
+                                      enrollmentsApi.place(r.id, {
+                                        level: placeLevel,
+                                        assignedCoachId: placeCoachId || undefined
+                                      })
                                     )
                                   }
                                 >

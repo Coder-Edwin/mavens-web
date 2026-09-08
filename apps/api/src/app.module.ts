@@ -15,6 +15,7 @@ import { GamesModule } from './modules/games/games.module';
 import { SchoolGroupsModule } from './modules/school-groups/school-groups.module';
 import { EnrollmentsModule } from './modules/enrollments/enrollments.module';
 import { PlacementsModule } from './modules/placements/placements.module';
+import { CoachesModule } from './modules/coaches/coaches.module';
 
 @Module({
   imports: [
@@ -33,7 +34,8 @@ import { PlacementsModule } from './modules/placements/placements.module';
     GamesModule,
     SchoolGroupsModule,
     EnrollmentsModule,
-    PlacementsModule
+    PlacementsModule,
+    CoachesModule
   ]
 })
 export class AppModule {}
