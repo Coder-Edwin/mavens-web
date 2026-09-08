@@ -21,6 +21,8 @@ import { SchedulePage } from '@/features/admin/SchedulePage';
 import { RateCardsAdmin } from '@/features/admin/RateCardsAdmin';
 import { InvoicesAdmin } from '@/features/admin/InvoicesAdmin';
 import { PayoutsAdmin } from '@/features/admin/PayoutsAdmin';
+import { CoursesAdmin } from '@/features/admin/CoursesAdmin';
+import { CourseEditor } from '@/features/admin/CourseEditor';
 import { CoachDashboard } from '@/features/coach/CoachDashboard';
 import { StudentDashboard } from '@/features/student/StudentDashboard';
 import { ParentDashboard } from '@/features/parent/ParentDashboard';
@@ -71,6 +73,8 @@ function AuthenticatedApp() {
             <Route path="rate-cards" element={<RateCardsAdmin />} />
             <Route path="invoices" element={<InvoicesAdmin />} />
             <Route path="payouts" element={<PayoutsAdmin />} />
+            <Route path="courses" element={<CoursesAdmin />} />
+            <Route path="courses/:id" element={<CourseEditor />} />
           </>
         )}
         <Route path="*" element={<Navigate to="/app" replace />} />

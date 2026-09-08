@@ -22,6 +22,7 @@ const NAV_ITEMS: Record<EffectiveRole, { glyph: string; label: string; to?: stri
     { glyph: '♞', label: 'Coach payouts', to: '/app/payouts' },
     { glyph: '♝', label: 'Merchandise' },
     { glyph: '♙', label: 'Articles', to: '/app/articles' },
+    { glyph: '♘', label: 'Courses', to: '/app/courses' },
     { glyph: '♟', label: 'Leads', to: '/app/leads' },
     { glyph: '♗', label: 'Announcements', to: '/app/announcements' },
     { glyph: '♞', label: 'Play', to: '/app/play' },

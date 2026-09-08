@@ -138,6 +138,14 @@ vi.mock('@/lib/payouts', async (importOriginal) => {
   };
 });
 
+vi.mock('@/lib/courses', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/courses')>();
+  return {
+    ...actual,
+    coursesApi: { ...actual.coursesApi, list: vi.fn().mockResolvedValue([]) }
+  };
+});
+
 vi.mock('@/lib/announcements', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/announcements')>();
   return {
@@ -314,6 +322,12 @@ describe('AppRoutes', () => {
     seedSession('ADMIN');
     renderAt('/app/payouts');
     expect(await screen.findByRole('button', { name: /generate run/i })).toBeInTheDocument();
+  });
+
+  it('renders the courses admin at /app/courses for a signed-in admin', async () => {
+    seedSession('ADMIN');
+    renderAt('/app/courses');
+    expect(await screen.findByRole('button', { name: /new course/i })).toBeInTheDocument();
   });
 
   it('gives every signed-in role the play lobby at /app/play', async () => {
