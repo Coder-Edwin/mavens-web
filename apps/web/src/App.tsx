@@ -23,6 +23,8 @@ import { InvoicesAdmin } from '@/features/admin/InvoicesAdmin';
 import { PayoutsAdmin } from '@/features/admin/PayoutsAdmin';
 import { CoursesAdmin } from '@/features/admin/CoursesAdmin';
 import { CourseEditor } from '@/features/admin/CourseEditor';
+import { MyCoursesPage } from '@/features/student/MyCoursesPage';
+import { CoursePlayerPage } from '@/features/student/CoursePlayerPage';
 import { CoachDashboard } from '@/features/coach/CoachDashboard';
 import { StudentDashboard } from '@/features/student/StudentDashboard';
 import { ParentDashboard } from '@/features/parent/ParentDashboard';
@@ -58,6 +60,8 @@ function AuthenticatedApp() {
         <Route index element={DASHBOARDS[effectiveRole] ?? DASHBOARDS.student} />
         <Route path="play" element={<PlayLobby />} />
         <Route path="play/:id" element={<GamePage />} />
+        <Route path="learn" element={<MyCoursesPage />} />
+        <Route path="learn/:courseId" element={<CoursePlayerPage />} />
         {effectiveRole === 'admin' && (
           <>
             <Route path="articles" element={<ArticlesAdmin />} />

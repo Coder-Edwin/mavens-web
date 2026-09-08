@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Panel } from '@/components/ui/Primitives';
 import { AnnouncementsPanel } from '@/components/AnnouncementsPanel';
 import { MyEnrollmentsPanel } from '@/components/MyEnrollmentsPanel';
+import { MyCoursesPanel } from '@/components/MyCoursesPanel';
 import { api, ApiError } from '@/lib/api-client';
 
 interface PuzzleSetSummary {
@@ -101,7 +102,10 @@ export function StudentDashboard() {
 
       <AnnouncementsPanel />
 
-      <MyEnrollmentsPanel />
+      <div className="grid-2" style={{ alignItems: 'start' }}>
+        <MyEnrollmentsPanel />
+        <MyCoursesPanel />
+      </div>
 
       <div className="page-head">
         <div className="page-title" style={{ fontSize: 19 }}>

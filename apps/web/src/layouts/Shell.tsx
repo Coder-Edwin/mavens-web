@@ -39,7 +39,7 @@ const NAV_ITEMS: Record<EffectiveRole, { glyph: string; label: string; to?: stri
   student: [
     { glyph: '♔', label: 'My Progress', to: '/app' },
     { glyph: '♘', label: 'Puzzles' },
-    { glyph: '♗', label: 'Lessons' },
+    { glyph: '♗', label: 'My Courses', to: '/app/learn' },
     { glyph: '♜', label: 'Tournaments' },
     { glyph: '♕', label: 'Badges' },
     { glyph: '♞', label: 'Play', to: '/app/play' }

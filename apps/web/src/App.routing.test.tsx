@@ -142,7 +142,11 @@ vi.mock('@/lib/courses', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/courses')>();
   return {
     ...actual,
-    coursesApi: { ...actual.coursesApi, list: vi.fn().mockResolvedValue([]) }
+    coursesApi: {
+      ...actual.coursesApi,
+      list: vi.fn().mockResolvedValue([]),
+      mine: vi.fn().mockResolvedValue([])
+    }
   };
 });
 
@@ -328,6 +332,12 @@ describe('AppRoutes', () => {
     seedSession('ADMIN');
     renderAt('/app/courses');
     expect(await screen.findByRole('button', { name: /new course/i })).toBeInTheDocument();
+  });
+
+  it('gives a student the course list at /app/learn', async () => {
+    seedSession('STUDENT');
+    renderAt('/app/learn');
+    expect(await screen.findByText('My courses')).toBeInTheDocument();
   });
 
   it('gives every signed-in role the play lobby at /app/play', async () => {
