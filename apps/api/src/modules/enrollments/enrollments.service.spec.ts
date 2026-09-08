@@ -146,9 +146,7 @@ describe('EnrollmentsService', () => {
     it('returns a student’s own enrollments', async () => {
       prisma.studentProfile.findUnique.mockResolvedValue({ id: 'stu-1' });
       await service.findForUser(user({ role: 'STUDENT' }) as never);
-      expect(prisma.enrollment.findMany.mock.calls[0][0].where).toEqual({
-        studentId: { in: ['stu-1'] }
-      });
+      expect(prisma.enrollment.findMany.mock.calls[0][0].where).toEqual({ studentId: 'stu-1' });
     });
 
     it('returns every linked child’s enrollments for a parent', async () => {
@@ -167,7 +165,23 @@ describe('EnrollmentsService', () => {
       expect(prisma.enrollment.findMany).not.toHaveBeenCalled();
     });
 
-    it('returns an empty list for an admin', async () => {
+    it('returns the enrollments assigned to a coach', async () => {
+      prisma.coachProfile.findUnique.mockResolvedValue({ id: 'coach-1' });
+      await service.findForUser(user({ role: 'COACH' }) as never);
+      expect(prisma.enrollment.findMany.mock.calls[0][0].where).toEqual({
+        assignedCoachId: 'coach-1'
+      });
+    });
+
+    it('treats an admin-who-coaches as a coach here (Amwai)', async () => {
+      prisma.coachProfile.findUnique.mockResolvedValue({ id: 'coach-1' });
+      await service.findForUser(user({ role: 'ADMIN', isCoach: true }) as never);
+      expect(prisma.enrollment.findMany.mock.calls[0][0].where).toEqual({
+        assignedCoachId: 'coach-1'
+      });
+    });
+
+    it('returns an empty list for a pure admin', async () => {
       await expect(service.findForUser(user({ role: 'ADMIN' }) as never)).resolves.toEqual([]);
     });
   });

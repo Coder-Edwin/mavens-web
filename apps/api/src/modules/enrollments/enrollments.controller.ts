@@ -41,7 +41,7 @@ export class EnrollmentsController {
   // before ':id' so "mine" isn't captured as an id, and given its own
   // @Roles which overrides the class-level ADMIN restriction.
   @Get('mine')
-  @Roles('STUDENT', 'PARENT', 'ADMIN')
+  @Roles('STUDENT', 'PARENT', 'COACH', 'ADMIN')
   mine(@CurrentUser() user: AuthenticatedUser) {
     return this.enrollmentsService.findForUser(user);
   }

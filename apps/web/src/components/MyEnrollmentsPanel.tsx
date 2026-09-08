@@ -10,12 +10,22 @@ import {
   type Enrollment
 } from '@/lib/enrollments';
 
-// Read-only enrollment + level summary for the student and parent portals.
-// `showStudentName` is on for parents (multiple children), off for a student
-// looking at their own record.
-export function MyEnrollmentsPanel({ showStudentName = false }: { showStudentName?: boolean }) {
+// Read-only enrollment + level summary for the student, parent and coach
+// portals (GET /enrollments/mine adapts to the caller's role).
+// `showStudentName` is on for parents/coaches (multiple people), off for a
+// student looking at their own record.
+export function MyEnrollmentsPanel({
+  showStudentName = false,
+  title,
+  emptyText = 'No enrollment on file yet. The club office will set this up after your placement.'
+}: {
+  showStudentName?: boolean;
+  title?: string;
+  emptyText?: string;
+}) {
   const [rows, setRows] = useState<Enrollment[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const heading = title ?? (rows && rows.length > 1 ? 'Enrollments' : 'Enrollment');
 
   useEffect(() => {
     enrollmentsApi
@@ -28,7 +38,7 @@ export function MyEnrollmentsPanel({ showStudentName = false }: { showStudentNam
 
   if (error) {
     return (
-      <Panel title="Enrollment">
+      <Panel title={heading}>
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--red)' }}>{error}</div>
       </Panel>
     );
@@ -36,7 +46,7 @@ export function MyEnrollmentsPanel({ showStudentName = false }: { showStudentNam
 
   if (!rows) {
     return (
-      <Panel title="Enrollment">
+      <Panel title={heading}>
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--muted)' }}>Loading…</div>
       </Panel>
     );
@@ -44,16 +54,16 @@ export function MyEnrollmentsPanel({ showStudentName = false }: { showStudentNam
 
   if (rows.length === 0) {
     return (
-      <Panel title="Enrollment">
+      <Panel title={heading}>
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--muted)' }}>
-          No enrollment on file yet. The club office will set this up after your placement.
+          {emptyText}
         </div>
       </Panel>
     );
   }
 
   return (
-    <Panel title={rows.length > 1 ? 'Enrollments' : 'Enrollment'}>
+    <Panel title={heading}>
       <table>
         <thead>
           <tr>

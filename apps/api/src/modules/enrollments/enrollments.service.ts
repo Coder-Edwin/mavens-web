@@ -121,32 +121,44 @@ export class EnrollmentsService {
   }
 
   /// Read-only view for the portals: a student sees their own enrollments, a
-  /// parent sees every linked child's. Anyone else gets an empty list.
+  /// parent sees every linked child's, a coach sees the ones assigned to
+  /// them. Anyone else (a pure admin) gets an empty list — they use /enrollments.
   async findForUser(user: AuthenticatedUser) {
-    let studentIds: string[] = [];
-
     if (user.role === 'STUDENT') {
       const profile = await this.prisma.studentProfile.findUnique({
         where: { userId: user.userId },
         select: { id: true }
       });
       if (!profile) return [];
-      studentIds = [profile.id];
-    } else if (user.role === 'PARENT') {
+      return this.listForWhere({ studentId: profile.id });
+    }
+
+    if (user.role === 'PARENT') {
       const profile = await this.prisma.parentProfile.findUnique({
         where: { userId: user.userId },
         select: { studentLinks: { select: { studentId: true } } }
       });
-      if (!profile) return [];
-      studentIds = profile.studentLinks.map((l) => l.studentId);
-    } else {
-      return [];
+      if (!profile || profile.studentLinks.length === 0) return [];
+      return this.listForWhere({
+        studentId: { in: profile.studentLinks.map((l) => l.studentId) }
+      });
     }
 
-    if (studentIds.length === 0) return [];
+    if (user.role === 'COACH' || user.isCoach) {
+      const profile = await this.prisma.coachProfile.findUnique({
+        where: { userId: user.userId },
+        select: { id: true }
+      });
+      if (!profile) return [];
+      return this.listForWhere({ assignedCoachId: profile.id });
+    }
 
+    return [];
+  }
+
+  private listForWhere(where: Prisma.EnrollmentWhereInput) {
     return this.prisma.enrollment.findMany({
-      where: { studentId: { in: studentIds } },
+      where,
       orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
       include: this.detailInclude
     });

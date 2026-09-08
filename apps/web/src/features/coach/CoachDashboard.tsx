@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Panel } from "@/components/ui/Primitives";
 import { AnnouncementsPanel } from "@/components/AnnouncementsPanel";
+import { MyEnrollmentsPanel } from "@/components/MyEnrollmentsPanel";
 import { api, ApiError } from "@/lib/api-client";
 
 interface StudentSummary {
@@ -185,6 +186,12 @@ export function CoachDashboard() {
       </div>
 
       <AnnouncementsPanel />
+
+      <MyEnrollmentsPanel
+        showStudentName
+        title="Assigned enrollments"
+        emptyText="No enrollments are assigned to you yet."
+      />
 
       <div className="grid-2">
         <Panel title="Log a Session">

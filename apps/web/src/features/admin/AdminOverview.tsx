@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { KpiCard, Panel, Chip } from '@/components/ui/Primitives';
 import { api, ApiError } from '@/lib/api-client';
+import { enrollmentsApi, formatCrmDate, type Enrollment } from '@/lib/enrollments';
+import { placementsApi, type PlacementAssessment } from '@/lib/placements';
 
 interface StudentSummary {
   id: string;
@@ -49,21 +51,29 @@ export function AdminOverview() {
   const [sessions, setSessions] = useState<SessionRecord[] | null>(null);
   const [merchandise, setMerchandise] = useState<MerchandiseItemSummary[] | null>(null);
   const [payments, setPayments] = useState<PaymentRecord[] | null>(null);
+  const [enrollments, setEnrollments] = useState<Enrollment[] | null>(null);
+  const [assessments, setAssessments] = useState<PlacementAssessment[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     async function load() {
       try {
-        const [studentsData, sessionsData, merchandiseData, paymentsData] = await Promise.all([
-          api.get<StudentSummary[]>('/students'),
-          api.get<SessionRecord[]>('/sessions'),
-          api.get<MerchandiseItemSummary[]>('/merchandise'),
-          api.get<PaymentRecord[]>('/payments')
-        ]);
+        const [studentsData, sessionsData, merchandiseData, paymentsData, enrollmentsData, assessmentsData] =
+          await Promise.all([
+            api.get<StudentSummary[]>('/students'),
+            api.get<SessionRecord[]>('/sessions'),
+            api.get<MerchandiseItemSummary[]>('/merchandise'),
+            api.get<PaymentRecord[]>('/payments'),
+            enrollmentsApi.list(),
+            placementsApi.list({ status: 'SCHEDULED' })
+          ]);
         setStudents(studentsData);
         setSessions(sessionsData);
         setMerchandise(merchandiseData);
         setPayments(paymentsData);
+        setEnrollments(enrollmentsData);
+        setAssessments(assessmentsData);
       } catch (err) {
         setError(err instanceof ApiError ? err.message : 'Could not load the admin dashboard.');
       }
@@ -80,7 +90,7 @@ export function AdminOverview() {
     );
   }
 
-  if (!students || !sessions || !merchandise || !payments) {
+  if (!students || !sessions || !merchandise || !payments || !enrollments || !assessments) {
     return <div className="page-sub">Loading club overview…</div>;
   }
 
@@ -88,6 +98,17 @@ export function AdminOverview() {
   const lowStockItems = merchandise.filter((m) => m.stockQuantity <= LOW_STOCK_THRESHOLD);
   const recentSessions = [...sessions]
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, 6);
+
+  const activeEnrollments = enrollments.filter((e) => e.status === 'ACTIVE').length;
+  const awaitingPlacement = enrollments.filter((e) => e.status === 'PENDING_PLACEMENT').length;
+  const waitlisted = enrollments.filter((e) => e.status === 'WAITLISTED').length;
+  const upcomingAssessments = [...assessments]
+    .sort((a, b) => {
+      const at = a.scheduledFor ? new Date(a.scheduledFor).getTime() : Infinity;
+      const bt = b.scheduledFor ? new Date(b.scheduledFor).getTime() : Infinity;
+      return at - bt;
+    })
     .slice(0, 6);
 
   return (
@@ -131,6 +152,45 @@ export function AdminOverview() {
           delta={lowStockItems.length > 0 ? 'needs restocking' : undefined}
           tone={lowStockItems.length > 0 ? 'warn' : 'neutral'}
         />
+      </div>
+
+      <div className="kpi-row">
+        <KpiCard label="Active Enrollments" value={String(activeEnrollments)} />
+        <KpiCard
+          label="Awaiting Placement"
+          value={String(awaitingPlacement)}
+          delta={awaitingPlacement > 0 ? 'needs assessment' : undefined}
+          tone={awaitingPlacement > 0 ? 'warn' : 'neutral'}
+        />
+        <KpiCard label="Waitlisted" value={String(waitlisted)} />
+        <KpiCard label="Assessments Scheduled" value={String(assessments.length)} />
+      </div>
+
+      <div style={{ marginBottom: 16 }}>
+        <Panel title="Placement queue" linkLabel="Open" onLinkClick={() => navigate('/app/placements')}>
+          {upcomingAssessments.length === 0 ? (
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--muted)' }}>
+              No assessments scheduled.
+            </div>
+          ) : (
+            upcomingAssessments.map((a) => (
+              <div className="feed-item" key={a.id}>
+                <div className="feed-dot" />
+                <div>
+                  <div className="feed-text">
+                    <b>
+                      {a.student ? `${a.student.firstName} ${a.student.lastName}` : 'Student'}
+                    </b>{' '}
+                    — placement assessment
+                  </div>
+                  <div className="feed-time">
+                    {a.scheduledFor ? formatCrmDate(a.scheduledFor) : 'unscheduled'}
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </Panel>
       </div>
 
       <div className="grid-2">
