@@ -45,7 +45,11 @@ export const coachesApi = {
 };
 
 // A coach's display name: "First Last" when we have it, otherwise the login email.
-export function coachName(c: Pick<Coach, 'firstName' | 'lastName' | 'user'>): string {
+export function coachName(c: {
+  firstName: string | null;
+  lastName: string | null;
+  user?: { email: string };
+}): string {
   const full = [c.firstName, c.lastName].filter(Boolean).join(' ').trim();
   return full || c.user?.email || 'Unnamed coach';
 }

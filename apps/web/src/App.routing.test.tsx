@@ -90,6 +90,22 @@ vi.mock('@/lib/coaches', async (importOriginal) => {
   };
 });
 
+vi.mock('@/lib/terms', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/terms')>();
+  return {
+    ...actual,
+    termsApi: { ...actual.termsApi, list: vi.fn().mockResolvedValue([]) }
+  };
+});
+
+vi.mock('@/lib/class-schedules', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/class-schedules')>();
+  return {
+    ...actual,
+    classSchedulesApi: { ...actual.classSchedulesApi, list: vi.fn().mockResolvedValue([]) }
+  };
+});
+
 vi.mock('@/lib/announcements', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/announcements')>();
   return {
@@ -230,6 +246,18 @@ describe('AppRoutes', () => {
     seedSession('ADMIN');
     renderAt('/app/coaches');
     expect(await screen.findByRole('button', { name: /new coach/i })).toBeInTheDocument();
+  });
+
+  it('renders the terms admin at /app/terms for a signed-in admin', async () => {
+    seedSession('ADMIN');
+    renderAt('/app/terms');
+    expect(await screen.findByRole('button', { name: /new term/i })).toBeInTheDocument();
+  });
+
+  it('renders the class schedules admin at /app/class-schedules for a signed-in admin', async () => {
+    seedSession('ADMIN');
+    renderAt('/app/class-schedules');
+    expect(await screen.findByRole('button', { name: /new schedule/i })).toBeInTheDocument();
   });
 
   it('gives every signed-in role the play lobby at /app/play', async () => {
