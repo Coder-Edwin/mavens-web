@@ -392,4 +392,10 @@ describe('AppRoutes', () => {
     renderAt('/app/play');
     expect(await screen.findByRole('button', { name: /create game/i })).toBeInTheDocument();
   });
+
+  it('gives every signed-in role the analysis board at /app/analysis', async () => {
+    seedSession('STUDENT');
+    renderAt('/app/analysis');
+    expect(await screen.findByText('Analysis board')).toBeInTheDocument();
+  });
 });

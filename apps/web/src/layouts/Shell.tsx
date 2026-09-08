@@ -27,6 +27,7 @@ const NAV_ITEMS: Record<EffectiveRole, { glyph: string; label: string; to?: stri
     { glyph: '♟', label: 'Leads', to: '/app/leads' },
     { glyph: '♗', label: 'Announcements', to: '/app/announcements' },
     { glyph: '♞', label: 'Play', to: '/app/play' },
+    { glyph: '♝', label: 'Analysis', to: '/app/analysis' },
     { glyph: '♖', label: 'Reports', to: '/app/reports' }
   ],
   coach: [
@@ -35,7 +36,8 @@ const NAV_ITEMS: Record<EffectiveRole, { glyph: string; label: string; to?: stri
     { glyph: '♗', label: 'Lesson Plans' },
     { glyph: '♘', label: 'Puzzles' },
     { glyph: '♜', label: 'Recording Sheets' },
-    { glyph: '♞', label: 'Play', to: '/app/play' }
+    { glyph: '♞', label: 'Play', to: '/app/play' },
+    { glyph: '♝', label: 'Analysis', to: '/app/analysis' }
   ],
   student: [
     { glyph: '♔', label: 'My Progress', to: '/app' },
@@ -43,7 +45,8 @@ const NAV_ITEMS: Record<EffectiveRole, { glyph: string; label: string; to?: stri
     { glyph: '♗', label: 'My Courses', to: '/app/learn' },
     { glyph: '♜', label: 'Tournaments' },
     { glyph: '♕', label: 'Badges' },
-    { glyph: '♞', label: 'Play', to: '/app/play' }
+    { glyph: '♞', label: 'Play', to: '/app/play' },
+    { glyph: '♝', label: 'Analysis', to: '/app/analysis' }
   ],
   parent: [
     { glyph: '♔', label: 'Overview' },
