@@ -47,6 +47,7 @@ model User {
   announcements  Announcement[]
   whiteGames     Game[]         @relation("WhiteGames")
   blackGames     Game[]         @relation("BlackGames")
+  invoices       Invoice[]
 
   @@index([role])
 }
@@ -62,6 +63,7 @@ model CoachProfile {
   specialty      String?
   employmentType EmploymentType @default(STAFF) // STAFF -> payroll, CONSULTANT -> per-session invoice
   skills         String? // comma-separated skill tags, used later for substitute matching
+  sessionRate    Decimal?       @db.Decimal(10, 2) // KES paid per COMPLETED session, for payout runs
   createdAt      DateTime       @default(now())
 
   studentLinks       CoachStudent[]
@@ -74,6 +76,7 @@ model CoachProfile {
   assignedEnrollments Enrollment[]         @relation("AssignedCoach")
   assessments        PlacementAssessment[] @relation("Assessor")
   classSchedules     ClassSchedule[]
+  payoutItems        PayoutItem[]
 }
 
 model StudentProfile {
@@ -173,7 +176,8 @@ model Session {
   endsAt          DateTime?
   status          SessionStatus  @default(LOGGED)
 
-  attendance SessionAttendance[]
+  attendance   SessionAttendance[]
+  invoiceLines InvoiceLine[]
 
   @@index([coachId, date])
   @@index([status, date])
@@ -742,6 +746,7 @@ model SchoolGroup {
 
   enrollments Enrollment[]
   schedules   ClassSchedule[]
+  invoices    Invoice[]
 
   @@index([status])
 }
@@ -770,6 +775,7 @@ model Enrollment {
 
   events      EnrollmentEvent[]
   placements  PlacementAssessment[]
+  invoices    Invoice[]
 
   @@index([studentId, status])
   @@index([status, deliveryType])
@@ -865,6 +871,147 @@ model ClassSchedule {
   @@index([schoolGroupId])
   @@index([coachId])
   @@index([termId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Billing & payouts (Phase 3) — chess-only coaching CRM. Kept separate
+// from the legacy Payment / Subscription / Membership models, which still
+// cover the old class-sub and yearly-membership M-Pesa flows. Unifying
+// these (and wiring invoice payment to the STK callback) is a later step.
+// ─────────────────────────────────────────────────────────────
+
+enum RateUnit {
+  PER_SESSION
+  PER_MONTH
+  PER_TERM
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PARTIAL
+  PAID
+  VOID
+}
+
+enum PayoutStatus {
+  DRAFT
+  APPROVED
+  PAID
+}
+
+/// What a client pays. Resolution for an enrollment picks the most specific
+/// ACTIVE, in-effect card: exact (deliveryType+level+clientType) beats
+/// deliveryType+level beats deliveryType+clientType beats deliveryType-only.
+model RateCard {
+  id            String        @id @default(uuid())
+  name          String
+  deliveryType  DeliveryType
+  level         StudentLevel?
+  clientType    ClientType?
+  unit          RateUnit      @default(PER_SESSION)
+  amount        Decimal       @db.Decimal(10, 2)
+  currency      String        @default("KES")
+  active        Boolean       @default(true)
+  effectiveFrom DateTime      @default(now())
+  effectiveTo   DateTime?
+  notes         String?       @db.Text
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  invoiceLines InvoiceLine[]
+
+  @@index([deliveryType, active])
+}
+
+model Invoice {
+  id            String        @id @default(uuid())
+  number        String        @unique
+  enrollmentId  String?
+  enrollment    Enrollment?   @relation(fields: [enrollmentId], references: [id])
+  schoolGroupId String?
+  schoolGroup   SchoolGroup?  @relation(fields: [schoolGroupId], references: [id])
+  billToUserId  String?
+  billTo        User?         @relation(fields: [billToUserId], references: [id])
+  periodStart   DateTime
+  periodEnd     DateTime
+  status        InvoiceStatus @default(DRAFT)
+  currency      String        @default("KES")
+  subtotal      Decimal       @default(0) @db.Decimal(10, 2)
+  total         Decimal       @default(0) @db.Decimal(10, 2)
+  amountPaid    Decimal       @default(0) @db.Decimal(10, 2)
+  issuedAt      DateTime?
+  dueAt         DateTime?
+  notes         String?       @db.Text
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  lines    InvoiceLine[]
+  payments InvoicePayment[]
+
+  @@index([status, periodStart])
+  @@index([enrollmentId])
+  @@index([schoolGroupId])
+}
+
+model InvoiceLine {
+  id          String    @id @default(uuid())
+  invoiceId   String
+  invoice     Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  description String
+  quantity    Int       @default(1)
+  unitAmount  Decimal   @db.Decimal(10, 2)
+  amount      Decimal   @db.Decimal(10, 2)
+  rateCardId  String?
+  rateCard    RateCard? @relation(fields: [rateCardId], references: [id])
+  sessionId   String?
+  session     Session?  @relation(fields: [sessionId], references: [id])
+
+  @@index([invoiceId])
+  @@index([sessionId])
+}
+
+model InvoicePayment {
+  id        String        @id @default(uuid())
+  invoiceId String
+  invoice   Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  amount    Decimal       @db.Decimal(10, 2)
+  method    PaymentMethod @default(MPESA)
+  reference String?
+  paidAt    DateTime      @default(now())
+  notes     String?
+  createdAt DateTime      @default(now())
+
+  @@index([invoiceId])
+}
+
+model PayoutRun {
+  id          String       @id @default(uuid())
+  periodStart DateTime
+  periodEnd   DateTime
+  status      PayoutStatus @default(DRAFT)
+  notes       String?      @db.Text
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  items PayoutItem[]
+
+  @@index([status, periodStart])
+}
+
+model PayoutItem {
+  id             String       @id @default(uuid())
+  payoutRunId    String
+  payoutRun      PayoutRun    @relation(fields: [payoutRunId], references: [id], onDelete: Cascade)
+  coachId        String
+  coach          CoachProfile @relation(fields: [coachId], references: [id])
+  sessionCount   Int
+  ratePerSession Decimal      @db.Decimal(10, 2)
+  amount         Decimal      @db.Decimal(10, 2)
+  notes          String?
+
+  @@unique([payoutRunId, coachId])
+  @@index([coachId])
 }
 
 model Article {

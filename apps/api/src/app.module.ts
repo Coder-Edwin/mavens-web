@@ -18,6 +18,9 @@ import { PlacementsModule } from './modules/placements/placements.module';
 import { CoachesModule } from './modules/coaches/coaches.module';
 import { TermsModule } from './modules/terms/terms.module';
 import { ClassSchedulesModule } from './modules/class-schedules/class-schedules.module';
+import { RateCardsModule } from './modules/rate-cards/rate-cards.module';
+import { InvoicesModule } from './modules/invoices/invoices.module';
+import { PayoutsModule } from './modules/payouts/payouts.module';
 
 @Module({
   imports: [
@@ -39,7 +42,10 @@ import { ClassSchedulesModule } from './modules/class-schedules/class-schedules.
     PlacementsModule,
     CoachesModule,
     TermsModule,
-    ClassSchedulesModule
+    ClassSchedulesModule,
+    RateCardsModule,
+    InvoicesModule,
+    PayoutsModule
   ]
 })
 export class AppModule {}

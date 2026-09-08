@@ -74,7 +74,8 @@ export class CoachesService {
         specialty: dto.specialty !== undefined ? dto.specialty.trim() || null : undefined,
         bio: dto.bio !== undefined ? dto.bio.trim() || null : undefined,
         skills: dto.skills !== undefined ? dto.skills.trim() || null : undefined,
-        employmentType: dto.employmentType ?? undefined
+        employmentType: dto.employmentType ?? undefined,
+        sessionRate: dto.sessionRate ?? undefined
       },
       include: this.userSelect
     });

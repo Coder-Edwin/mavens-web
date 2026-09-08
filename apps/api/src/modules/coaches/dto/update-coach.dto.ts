@@ -1,4 +1,4 @@
-import { IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsIn, IsNumber, IsOptional, IsString, MaxLength, Min, MinLength } from 'class-validator';
 import { EMPLOYMENT_TYPES, type EmploymentType } from './create-coach.dto';
 
 export class UpdateCoachDto {
@@ -37,4 +37,9 @@ export class UpdateCoachDto {
   @IsOptional()
   @IsIn(EMPLOYMENT_TYPES)
   employmentType?: EmploymentType;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  sessionRate?: number;
 }
