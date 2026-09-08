@@ -133,6 +133,12 @@ export function AdminOverview() {
           <Link to="/app/class-schedules" className="btn btn-ghost btn-sm">
             Class schedules
           </Link>
+          <Link to="/app/invoices" className="btn btn-ghost btn-sm">
+            Invoices
+          </Link>
+          <Link to="/app/payouts" className="btn btn-ghost btn-sm">
+            Payouts
+          </Link>
           <Link to="/app/leads" className="btn btn-ghost btn-sm">
             Leads
           </Link>

@@ -22,7 +22,8 @@ const EMPTY: CoachInput = {
   specialty: '',
   bio: '',
   skills: '',
-  employmentType: 'STAFF'
+  employmentType: 'STAFF',
+  sessionRate: undefined
 };
 
 export function CoachesAdmin() {
@@ -61,7 +62,8 @@ export function CoachesAdmin() {
       specialty: c.specialty ?? '',
       bio: c.bio ?? '',
       skills: c.skills ?? '',
-      employmentType: c.employmentType
+      employmentType: c.employmentType,
+      sessionRate: c.sessionRate != null ? Number(c.sessionRate) : undefined
     });
     setEditingId(c.id);
   }
@@ -84,7 +86,8 @@ export function CoachesAdmin() {
           specialty: form.specialty?.trim() || undefined,
           bio: form.bio?.trim() || undefined,
           skills: form.skills?.trim() || undefined,
-          employmentType: form.employmentType
+          employmentType: form.employmentType,
+          sessionRate: form.sessionRate ?? undefined
         });
       } else {
         const result = await coachesApi.create({
@@ -211,6 +214,25 @@ export function CoachesAdmin() {
                       </option>
                     ))}
                   </select>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={labelStyle} htmlFor="co-rate">
+                    Session rate <span style={{ opacity: 0.6 }}>— KES, for payouts</span>
+                  </label>
+                  <input
+                    id="co-rate"
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    style={inputStyle}
+                    value={form.sessionRate ?? ''}
+                    onChange={(e) =>
+                      setForm((f) => ({
+                        ...f,
+                        sessionRate: e.target.value ? Number(e.target.value) : undefined
+                      }))
+                    }
+                  />
                 </div>
               </div>
 

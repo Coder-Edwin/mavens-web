@@ -40,6 +40,7 @@ const coach = (over: Partial<Coach>): Coach => ({
   specialty: 'Endgames',
   skills: null,
   employmentType: 'STAFF',
+  sessionRate: null,
   createdAt: '2026-09-01T00:00:00Z',
   user: { email: 'brian@example.com', isActive: true },
   ...over

@@ -114,6 +114,30 @@ vi.mock('@/lib/sessions', async (importOriginal) => {
   };
 });
 
+vi.mock('@/lib/rate-cards', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/rate-cards')>();
+  return {
+    ...actual,
+    rateCardsApi: { ...actual.rateCardsApi, list: vi.fn().mockResolvedValue([]) }
+  };
+});
+
+vi.mock('@/lib/invoices', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/invoices')>();
+  return {
+    ...actual,
+    invoicesApi: { ...actual.invoicesApi, list: vi.fn().mockResolvedValue([]) }
+  };
+});
+
+vi.mock('@/lib/payouts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/payouts')>();
+  return {
+    ...actual,
+    payoutsApi: { ...actual.payoutsApi, list: vi.fn().mockResolvedValue([]) }
+  };
+});
+
 vi.mock('@/lib/announcements', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/announcements')>();
   return {
@@ -272,6 +296,24 @@ describe('AppRoutes', () => {
     seedSession('ADMIN');
     renderAt('/app/schedule');
     expect(await screen.findByRole('button', { name: /this week/i })).toBeInTheDocument();
+  });
+
+  it('renders the rate cards admin at /app/rate-cards for a signed-in admin', async () => {
+    seedSession('ADMIN');
+    renderAt('/app/rate-cards');
+    expect(await screen.findByRole('button', { name: /new rate card/i })).toBeInTheDocument();
+  });
+
+  it('renders the invoices admin at /app/invoices for a signed-in admin', async () => {
+    seedSession('ADMIN');
+    renderAt('/app/invoices');
+    expect(await screen.findByRole('button', { name: /generate invoice/i })).toBeInTheDocument();
+  });
+
+  it('renders the payouts admin at /app/payouts for a signed-in admin', async () => {
+    seedSession('ADMIN');
+    renderAt('/app/payouts');
+    expect(await screen.findByRole('button', { name: /generate run/i })).toBeInTheDocument();
   });
 
   it('gives every signed-in role the play lobby at /app/play', async () => {

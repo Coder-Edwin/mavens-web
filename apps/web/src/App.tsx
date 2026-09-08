@@ -18,6 +18,9 @@ import { CoachesAdmin } from '@/features/admin/CoachesAdmin';
 import { TermsAdmin } from '@/features/admin/TermsAdmin';
 import { ClassSchedulesAdmin } from '@/features/admin/ClassSchedulesAdmin';
 import { SchedulePage } from '@/features/admin/SchedulePage';
+import { RateCardsAdmin } from '@/features/admin/RateCardsAdmin';
+import { InvoicesAdmin } from '@/features/admin/InvoicesAdmin';
+import { PayoutsAdmin } from '@/features/admin/PayoutsAdmin';
 import { CoachDashboard } from '@/features/coach/CoachDashboard';
 import { StudentDashboard } from '@/features/student/StudentDashboard';
 import { ParentDashboard } from '@/features/parent/ParentDashboard';
@@ -65,6 +68,9 @@ function AuthenticatedApp() {
             <Route path="terms" element={<TermsAdmin />} />
             <Route path="class-schedules" element={<ClassSchedulesAdmin />} />
             <Route path="schedule" element={<SchedulePage />} />
+            <Route path="rate-cards" element={<RateCardsAdmin />} />
+            <Route path="invoices" element={<InvoicesAdmin />} />
+            <Route path="payouts" element={<PayoutsAdmin />} />
           </>
         )}
         <Route path="*" element={<Navigate to="/app" replace />} />

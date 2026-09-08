@@ -16,6 +16,7 @@ export interface Coach {
   specialty: string | null;
   skills: string | null;
   employmentType: EmploymentType;
+  sessionRate: string | null;
   createdAt: string;
   user?: { email: string; isActive: boolean };
 }
@@ -29,6 +30,7 @@ export interface CoachInput {
   bio?: string;
   skills?: string;
   employmentType?: EmploymentType;
+  sessionRate?: number;
 }
 
 export interface CreateCoachResult {
