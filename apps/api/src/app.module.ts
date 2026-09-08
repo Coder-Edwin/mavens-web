@@ -22,6 +22,7 @@ import { RateCardsModule } from './modules/rate-cards/rate-cards.module';
 import { InvoicesModule } from './modules/invoices/invoices.module';
 import { PayoutsModule } from './modules/payouts/payouts.module';
 import { CoursesModule } from './modules/courses/courses.module';
+import { ReportsModule } from './modules/reports/reports.module';
 
 @Module({
   imports: [
@@ -47,7 +48,8 @@ import { CoursesModule } from './modules/courses/courses.module';
     RateCardsModule,
     InvoicesModule,
     PayoutsModule,
-    CoursesModule
+    CoursesModule,
+    ReportsModule
   ]
 })
 export class AppModule {}
