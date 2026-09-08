@@ -5,6 +5,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { LeadsService } from './leads.service';
 import { CreateLeadDto } from './dto/create-lead.dto';
 import { UpdateLeadDto } from './dto/update-lead.dto';
+import { ConvertLeadDto } from './dto/convert-lead.dto';
 
 @Controller('leads')
 export class LeadsController {
@@ -30,6 +31,14 @@ export class LeadsController {
   @Roles('ADMIN')
   update(@Param('id') id: string, @Body() dto: UpdateLeadDto) {
     return this.leadsService.update(id, dto);
+  }
+
+  // POST /api/v1/leads/:id/convert — admin promotes a lead to a student record
+  @Post(':id/convert')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  convert(@Param('id') id: string, @Body() dto: ConvertLeadDto) {
+    return this.leadsService.convert(id, dto);
   }
 
   // DELETE /api/v1/leads/:id — admin only

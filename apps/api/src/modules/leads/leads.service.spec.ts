@@ -1,10 +1,18 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { LeadsService } from './leads.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { EnrollmentsService } from '../enrollments/enrollments.service';
+import { PlacementsService } from '../placements/placements.service';
 
 describe('LeadsService', () => {
   let service: LeadsService;
+  let enrollments: { create: jest.Mock };
+  let placements: { schedule: jest.Mock };
+  let txUser: { create: jest.Mock; findUnique: jest.Mock };
+  let txParentProfile: { create: jest.Mock };
+  let txParentStudent: { create: jest.Mock };
+  let txLead: { update: jest.Mock };
   let prisma: {
     lead: {
       create: jest.Mock;
@@ -13,9 +21,26 @@ describe('LeadsService', () => {
       update: jest.Mock;
       delete: jest.Mock;
     };
+    user: { findUnique: jest.Mock };
+    $transaction: jest.Mock;
   };
 
   beforeEach(async () => {
+    txUser = {
+      create: jest.fn((a) =>
+        Promise.resolve({
+          id: a.data.role === 'PARENT' ? 'puser-1' : 'suser-1',
+          ...a.data,
+          studentProfile: a.data.role === 'STUDENT' ? { id: 'stu-1', ...a.data.studentProfile?.create } : undefined,
+          parentProfile: a.data.role === 'PARENT' ? { id: 'par-1', ...a.data.parentProfile?.create } : undefined
+        })
+      ),
+      findUnique: jest.fn().mockResolvedValue(null)
+    };
+    txParentProfile = { create: jest.fn((a) => Promise.resolve({ id: 'par-1', ...a.data })) };
+    txParentStudent = { create: jest.fn().mockResolvedValue({}) };
+    txLead = { update: jest.fn((a) => Promise.resolve({ id: a.where.id, ...a.data })) };
+
     prisma = {
       lead: {
         create: jest.fn((args) => Promise.resolve({ id: 'lead-1', ...args.data })),
@@ -23,11 +48,28 @@ describe('LeadsService', () => {
         findUnique: jest.fn(),
         update: jest.fn((args) => Promise.resolve({ id: args.where.id, ...args.data })),
         delete: jest.fn().mockResolvedValue({})
-      }
+      },
+      user: { findUnique: jest.fn().mockResolvedValue(null) },
+      $transaction: jest.fn(async (cb: any) =>
+        cb({
+          user: txUser,
+          parentProfile: txParentProfile,
+          parentStudent: txParentStudent,
+          lead: txLead
+        })
+      )
     };
 
+    enrollments = { create: jest.fn().mockResolvedValue({ id: 'enr-1' }) };
+    placements = { schedule: jest.fn().mockResolvedValue({ id: 'pa-1' }) };
+
     const module: TestingModule = await Test.createTestingModule({
-      providers: [LeadsService, { provide: PrismaService, useValue: prisma }]
+      providers: [
+        LeadsService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: EnrollmentsService, useValue: enrollments },
+        { provide: PlacementsService, useValue: placements }
+      ]
     }).compile();
 
     service = module.get<LeadsService>(LeadsService);
@@ -127,6 +169,122 @@ describe('LeadsService', () => {
       prisma.lead.findUnique.mockResolvedValue({ id: 'lead-1' });
       await expect(service.remove('lead-1')).resolves.toEqual({ id: 'lead-1' });
       expect(prisma.lead.delete).toHaveBeenCalledWith({ where: { id: 'lead-1' } });
+    });
+  });
+
+  describe('convert', () => {
+    const lead = {
+      id: 'lead-1',
+      parentName: 'Grace Wambui',
+      email: 'grace@example.com',
+      phone: '254712345678',
+      priorExperience: 'School club for a year',
+      convertedToStudentId: null
+    };
+    const baseDto = {
+      studentFirstName: 'Faith',
+      studentLastName: 'Wambui',
+      studentEmail: 'faith@example.com'
+    };
+
+    it('throws NotFoundException for an unknown lead', async () => {
+      prisma.lead.findUnique.mockResolvedValue(null);
+      await expect(service.convert('nope', baseDto)).rejects.toThrow(NotFoundException);
+    });
+
+    it('refuses a lead that was already converted', async () => {
+      prisma.lead.findUnique.mockResolvedValue({ ...lead, convertedToStudentId: 'stu-9' });
+      await expect(service.convert('lead-1', baseDto)).rejects.toThrow(ConflictException);
+    });
+
+    it('rejects a student email that collides with the parent email', async () => {
+      prisma.lead.findUnique.mockResolvedValue(lead);
+      await expect(
+        service.convert('lead-1', { ...baseDto, studentEmail: 'grace@example.com' })
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects a student email that is already a user', async () => {
+      prisma.lead.findUnique.mockResolvedValue(lead);
+      prisma.user.findUnique.mockResolvedValue({ id: 'existing' });
+      await expect(service.convert('lead-1', baseDto)).rejects.toThrow(ConflictException);
+    });
+
+    it('requires deliveryType when opening an enrollment', async () => {
+      prisma.lead.findUnique.mockResolvedValue(lead);
+      await expect(
+        service.convert('lead-1', { ...baseDto, createEnrollment: true })
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('creates the student, links a new parent and marks the lead ENROLLED', async () => {
+      prisma.lead.findUnique.mockResolvedValue(lead);
+      const result = await service.convert('lead-1', baseDto);
+
+      const studentCreate = txUser.create.mock.calls.find((c) => c[0].data.role === 'STUDENT')![0];
+      expect(studentCreate.data.studentProfile.create).toMatchObject({
+        firstName: 'Faith',
+        lastName: 'Wambui',
+        priorExperience: 'School club for a year'
+      });
+      expect(txUser.create.mock.calls.some((c) => c[0].data.role === 'PARENT')).toBe(true);
+      expect(txParentStudent.create).toHaveBeenCalledWith({
+        data: { parentId: 'par-1', studentId: 'stu-1' }
+      });
+      expect(txLead.update).toHaveBeenCalledWith({
+        where: { id: 'lead-1' },
+        data: { status: 'ENROLLED', convertedToStudentId: 'stu-1' }
+      });
+      expect(result.studentTempPassword).toEqual(expect.any(String));
+      expect(result.parentTempPassword).toEqual(expect.any(String));
+      expect(enrollments.create).not.toHaveBeenCalled();
+    });
+
+    it('reuses an existing parent account without minting a password', async () => {
+      prisma.lead.findUnique.mockResolvedValue(lead);
+      txUser.findUnique.mockResolvedValue({ id: 'puser-1', parentProfile: { id: 'par-existing' } });
+
+      const result = await service.convert('lead-1', baseDto);
+
+      expect(txUser.create.mock.calls.some((c) => c[0].data.role === 'PARENT')).toBe(false);
+      expect(txParentStudent.create).toHaveBeenCalledWith({
+        data: { parentId: 'par-existing', studentId: 'stu-1' }
+      });
+      expect(result.parentTempPassword).toBeNull();
+    });
+
+    it('skips parent linking when linkParent is false', async () => {
+      prisma.lead.findUnique.mockResolvedValue(lead);
+      await service.convert('lead-1', { ...baseDto, linkParent: false });
+      expect(txParentStudent.create).not.toHaveBeenCalled();
+    });
+
+    it('opens an enrollment and books a placement when asked', async () => {
+      prisma.lead.findUnique.mockResolvedValue(lead);
+      const result = await service.convert('lead-1', {
+        ...baseDto,
+        createEnrollment: true,
+        deliveryType: 'HOME',
+        assignedCoachId: 'coach-1',
+        schedulePlacement: true,
+        placementScheduledFor: '2026-10-01T09:00:00Z'
+      });
+
+      expect(enrollments.create).toHaveBeenCalledWith({
+        studentId: 'stu-1',
+        deliveryType: 'HOME',
+        schoolGroupId: undefined,
+        level: undefined,
+        assignedCoachId: 'coach-1'
+      });
+      expect(placements.schedule).toHaveBeenCalledWith({
+        studentId: 'stu-1',
+        enrollmentId: 'enr-1',
+        scheduledFor: '2026-10-01T09:00:00Z',
+        assessorCoachId: 'coach-1'
+      });
+      expect(result.enrollment).toEqual({ id: 'enr-1' });
+      expect(result.placement).toEqual({ id: 'pa-1' });
     });
   });
 });

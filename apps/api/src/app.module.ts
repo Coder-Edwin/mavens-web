@@ -12,6 +12,9 @@ import { ArticlesModule } from './modules/articles/articles.module';
 import { LeadsModule } from './modules/leads/leads.module';
 import { AnnouncementsModule } from './modules/announcements/announcements.module';
 import { GamesModule } from './modules/games/games.module';
+import { SchoolGroupsModule } from './modules/school-groups/school-groups.module';
+import { EnrollmentsModule } from './modules/enrollments/enrollments.module';
+import { PlacementsModule } from './modules/placements/placements.module';
 
 @Module({
   imports: [
@@ -27,7 +30,10 @@ import { GamesModule } from './modules/games/games.module';
     ArticlesModule,
     LeadsModule,
     AnnouncementsModule,
-    GamesModule
+    GamesModule,
+    SchoolGroupsModule,
+    EnrollmentsModule,
+    PlacementsModule
   ]
 })
 export class AppModule {}

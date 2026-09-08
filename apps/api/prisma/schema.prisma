@@ -52,31 +52,38 @@ model User {
 }
 
 model CoachProfile {
-  id        String   @id @default(uuid())
-  userId    String   @unique
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  bio       String?  @db.Text
-  specialty String?
-  createdAt DateTime @default(now())
+  id             String         @id @default(uuid())
+  userId         String         @unique
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bio            String?        @db.Text
+  specialty      String?
+  employmentType EmploymentType @default(STAFF) // STAFF -> payroll, CONSULTANT -> per-session invoice
+  skills         String? // comma-separated skill tags, used later for substitute matching
+  createdAt      DateTime       @default(now())
 
-  studentLinks      CoachStudent[]
-  sessions          Session[]
-  lessonPlans       LessonPlan[]
-  puzzleSets        PuzzleSet[]
-  gradedSubmissions PuzzleSubmission[]
-  coachNotes        CoachNote[]
-  reviewedSheets    RecordingSheet[]     @relation("ReviewingCoach")
+  studentLinks       CoachStudent[]
+  sessions           Session[]
+  lessonPlans        LessonPlan[]
+  puzzleSets         PuzzleSet[]
+  gradedSubmissions  PuzzleSubmission[]
+  coachNotes         CoachNote[]
+  reviewedSheets     RecordingSheet[]      @relation("ReviewingCoach")
+  assignedEnrollments Enrollment[]         @relation("AssignedCoach")
+  assessments        PlacementAssessment[] @relation("Assessor")
 }
 
 model StudentProfile {
-  id            String    @id @default(uuid())
-  userId        String    @unique
-  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  firstName     String
-  lastName      String
-  dateOfBirth   DateTime?
-  currentRating Int?
-  joinedAt      DateTime  @default(now())
+  id             String        @id @default(uuid())
+  userId         String        @unique
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName      String
+  lastName       String
+  dateOfBirth    DateTime?
+  currentRating  Int?
+  level          StudentLevel? // set by a placement assessment; null until placed
+  homeAddress    String? // for HOME-delivery lessons
+  priorExperience String?      @db.Text
+  joinedAt       DateTime      @default(now())
 
   parentLinks      ParentStudent[]
   coachLinks       CoachStudent[]
@@ -89,17 +96,24 @@ model StudentProfile {
   tournamentRegs   TournamentRegistration[]
   coachNotes       CoachNote[]
   badges           StudentBadge[]
+  enrollments      Enrollment[]
+  placements       PlacementAssessment[]
+  convertedFromLead Lead?
 
   @@index([lastName, firstName])
+  @@index([level])
 }
 
 model ParentProfile {
-  id        String   @id @default(uuid())
-  userId    String   @unique
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  firstName String
-  lastName  String
-  createdAt DateTime @default(now())
+  id                     String              @id @default(uuid())
+  userId                 String              @unique
+  user                   User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName              String
+  lastName               String
+  phone                  String? // contact number, separate from the login phone on User
+  communicationPreference NotificationChannel @default(WHATSAPP)
+  preferredPaymentMethod PaymentMethod       @default(MPESA)
+  createdAt              DateTime            @default(now())
 
   studentLinks ParentStudent[]
   orders       Order[]
@@ -600,19 +614,166 @@ enum LeadStatus {
 /// Someone interested in joining, submitted from the public /join form.
 /// No auth — anyone can create one; only admins read and triage them.
 model Lead {
-  id         String     @id @default(uuid())
-  parentName String
-  email      String
-  phone      String
-  childName  String?
-  childAge   Int?
-  message    String?    @db.Text
-  status     LeadStatus @default(NEW)
-  notes      String?    @db.Text
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
+  id                  String          @id @default(uuid())
+  parentName          String
+  email               String
+  phone               String
+  childName           String?
+  childAge            Int?
+  priorExperience     String?         @db.Text
+  selfAssessedLevel   StudentLevel?
+  message             String?         @db.Text
+  status              LeadStatus      @default(NEW)
+  notes               String?         @db.Text
+  convertedToStudentId String?        @unique
+  convertedToStudent  StudentProfile? @relation(fields: [convertedToStudentId], references: [id])
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
 
   @@index([status, createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Enrollment, placement & partner schools  (CRM Phase 1)
+// ─────────────────────────────────────────────────────────────
+
+enum StudentLevel {
+  NOVICE
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum DeliveryType {
+  HOME // coach travels to the student
+  CENTER // group at the designated centre (weekends)
+  SCHOOL_GROUP // coaching inside a partner school
+}
+
+enum ClientType {
+  INDIVIDUAL
+  INSTITUTION
+}
+
+enum EmploymentType {
+  STAFF
+  CONSULTANT
+}
+
+enum SchoolGroupStatus {
+  PROSPECT
+  ACTIVE
+  INACTIVE
+}
+
+enum EnrollmentStatus {
+  PENDING_PLACEMENT
+  WAITLISTED
+  ACTIVE
+  PAUSED
+  WITHDRAWN
+}
+
+enum PlacementStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+enum EnrollmentEventType {
+  CREATED
+  PLACED
+  LEVEL_CHANGE
+  COACH_CHANGE
+  DELIVERY_CHANGE
+  PAUSED
+  RESUMED
+  WITHDRAWN
+  WAITLISTED
+}
+
+/// A batch from a formal school we partner with.
+model SchoolGroup {
+  id               String            @id @default(uuid())
+  institutionName  String
+  address          String?
+  coordinatorName  String?
+  coordinatorPhone String?
+  coordinatorEmail String?
+  agreedGroupSize  Int?
+  status           SchoolGroupStatus @default(PROSPECT)
+  notes            String?           @db.Text
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  enrollments Enrollment[]
+
+  @@index([status])
+}
+
+/// One student's participation: delivery model, level, assigned coach,
+/// lifecycle state. The spine the scheduling and billing phases hang off.
+model Enrollment {
+  id              String           @id @default(uuid())
+  studentId       String
+  student         StudentProfile   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  deliveryType    DeliveryType
+  schoolGroupId   String?
+  schoolGroup     SchoolGroup?     @relation(fields: [schoolGroupId], references: [id])
+  clientType      ClientType       @default(INDIVIDUAL)
+  level           StudentLevel?
+  assignedCoachId String?
+  assignedCoach   CoachProfile?    @relation("AssignedCoach", fields: [assignedCoachId], references: [id])
+  status          EnrollmentStatus @default(PENDING_PLACEMENT)
+  startDate       DateTime         @default(now())
+  endDate         DateTime?
+  pausedFrom      DateTime?
+  pausedTo        DateTime?
+  waitlistNote    String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  events      EnrollmentEvent[]
+  placements  PlacementAssessment[]
+
+  @@index([studentId, status])
+  @@index([status, deliveryType])
+}
+
+/// Append-only timeline of what happened to an enrollment.
+model EnrollmentEvent {
+  id           String              @id @default(uuid())
+  enrollmentId String
+  enrollment   Enrollment          @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  type         EnrollmentEventType
+  fromValue    String?
+  toValue      String?
+  note         String?             @db.Text
+  byUserId     String?
+  at           DateTime            @default(now())
+
+  @@index([enrollmentId, at])
+}
+
+/// A scheduled assessment session; its result sets the student's level.
+model PlacementAssessment {
+  id              String          @id @default(uuid())
+  studentId       String
+  student         StudentProfile  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  enrollmentId    String?
+  enrollment      Enrollment?     @relation(fields: [enrollmentId], references: [id])
+  scheduledFor    DateTime?
+  assessorCoachId String?
+  assessorCoach   CoachProfile?   @relation("Assessor", fields: [assessorCoachId], references: [id])
+  status          PlacementStatus @default(SCHEDULED)
+  resultLevel     StudentLevel?
+  notes           String?         @db.Text
+  completedAt     DateTime?
+  nextReviewDue   DateTime? // re-assessment prompt (default +6 months)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([status, scheduledFor])
+  @@index([studentId])
 }
 
 model Article {
