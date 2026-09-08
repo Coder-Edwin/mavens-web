@@ -73,6 +73,7 @@ model CoachProfile {
   reviewedSheets     RecordingSheet[]      @relation("ReviewingCoach")
   assignedEnrollments Enrollment[]         @relation("AssignedCoach")
   assessments        PlacementAssessment[] @relation("Assessor")
+  classSchedules     ClassSchedule[]
 }
 
 model StudentProfile {
@@ -162,9 +163,21 @@ model Session {
   lessonPlanId String?
   lessonPlan   LessonPlan? @relation(fields: [lessonPlanId], references: [id])
 
+  // Scheduling layer (Phase 2). A LOGGED session is the legacy "coach wrote
+  // up what happened" record with no planned time. SCHEDULED sessions are
+  // generated from a ClassSchedule; they become COMPLETED once run (topic +
+  // attendance filled in) or CANCELLED if called off.
+  classScheduleId String?
+  classSchedule   ClassSchedule? @relation(fields: [classScheduleId], references: [id])
+  startsAt        DateTime?
+  endsAt          DateTime?
+  status          SessionStatus  @default(LOGGED)
+
   attendance SessionAttendance[]
 
   @@index([coachId, date])
+  @@index([status, date])
+  @@index([classScheduleId])
 }
 
 model SessionAttendance {
@@ -694,6 +707,25 @@ enum EnrollmentEventType {
   WAITLISTED
 }
 
+enum TermStatus {
+  PLANNED
+  ACTIVE
+  CLOSED
+}
+
+enum ScheduleStatus {
+  ACTIVE
+  PAUSED
+  ENDED
+}
+
+enum SessionStatus {
+  SCHEDULED // generated from a ClassSchedule, not yet run
+  COMPLETED // a scheduled session that was run (topic + attendance filled in)
+  CANCELLED // a scheduled session that was called off
+  LOGGED // legacy free-form record: a coach wrote up a session after the fact
+}
+
 /// A batch from a formal school we partner with.
 model SchoolGroup {
   id               String            @id @default(uuid())
@@ -709,6 +741,7 @@ model SchoolGroup {
   updatedAt        DateTime          @updatedAt
 
   enrollments Enrollment[]
+  schedules   ClassSchedule[]
 
   @@index([status])
 }
@@ -777,6 +810,61 @@ model PlacementAssessment {
 
   @@index([status, scheduledFor])
   @@index([studentId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Scheduling (Phase 2)
+// ─────────────────────────────────────────────────────────────
+
+/// Optional teaching term. Schedules can hang off a term or run open-ended
+/// (rolling enrollment) with just their own start/end dates.
+model Term {
+  id        String     @id @default(uuid())
+  name      String
+  startDate DateTime
+  endDate   DateTime
+  status    TermStatus @default(PLANNED)
+  notes     String?    @db.Text
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  schedules ClassSchedule[]
+
+  @@index([status, startDate])
+}
+
+/// A recurring class: one weekday + time slot, a coach, a venue/delivery
+/// model, optionally scoped to a level, school group or term. Concrete dated
+/// Session rows are generated from this.
+model ClassSchedule {
+  id              String         @id @default(uuid())
+  title           String
+  deliveryType    DeliveryType
+  schoolGroupId   String?
+  schoolGroup     SchoolGroup?   @relation(fields: [schoolGroupId], references: [id])
+  level           StudentLevel?
+  coachId         String?
+  coach           CoachProfile?  @relation(fields: [coachId], references: [id])
+  venue           String?
+  weekday         Int // 0 = Sunday .. 6 = Saturday
+  startTime       String // "HH:MM", 24h, club-local
+  durationMinutes Int            @default(60)
+  termId          String?
+  term            Term?          @relation(fields: [termId], references: [id])
+  startDate       DateTime
+  endDate         DateTime?
+  status          ScheduleStatus @default(ACTIVE)
+  capacity        Int?
+  notes           String?        @db.Text
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  sessions Session[]
+
+  @@index([status, weekday])
+  @@index([schoolGroupId])
+  @@index([coachId])
+  @@index([termId])
 }
 
 model Article {

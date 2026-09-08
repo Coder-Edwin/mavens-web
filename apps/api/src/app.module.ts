@@ -16,6 +16,8 @@ import { SchoolGroupsModule } from './modules/school-groups/school-groups.module
 import { EnrollmentsModule } from './modules/enrollments/enrollments.module';
 import { PlacementsModule } from './modules/placements/placements.module';
 import { CoachesModule } from './modules/coaches/coaches.module';
+import { TermsModule } from './modules/terms/terms.module';
+import { ClassSchedulesModule } from './modules/class-schedules/class-schedules.module';
 
 @Module({
   imports: [
@@ -35,7 +37,9 @@ import { CoachesModule } from './modules/coaches/coaches.module';
     SchoolGroupsModule,
     EnrollmentsModule,
     PlacementsModule,
-    CoachesModule
+    CoachesModule,
+    TermsModule,
+    ClassSchedulesModule
   ]
 })
 export class AppModule {}
