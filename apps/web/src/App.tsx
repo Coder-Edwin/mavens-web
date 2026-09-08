@@ -25,6 +25,8 @@ import { CoursesAdmin } from '@/features/admin/CoursesAdmin';
 import { CourseEditor } from '@/features/admin/CourseEditor';
 import { MyCoursesPage } from '@/features/student/MyCoursesPage';
 import { CoursePlayerPage } from '@/features/student/CoursePlayerPage';
+import { TournamentsAdmin } from '@/features/admin/TournamentsAdmin';
+import { TournamentDetail } from '@/features/admin/TournamentDetail';
 import { CoachDashboard } from '@/features/coach/CoachDashboard';
 import { StudentDashboard } from '@/features/student/StudentDashboard';
 import { ParentDashboard } from '@/features/parent/ParentDashboard';
@@ -79,6 +81,8 @@ function AuthenticatedApp() {
             <Route path="payouts" element={<PayoutsAdmin />} />
             <Route path="courses" element={<CoursesAdmin />} />
             <Route path="courses/:id" element={<CourseEditor />} />
+            <Route path="tournaments" element={<TournamentsAdmin />} />
+            <Route path="tournaments/:id" element={<TournamentDetail />} />
           </>
         )}
         <Route path="*" element={<Navigate to="/app" replace />} />
