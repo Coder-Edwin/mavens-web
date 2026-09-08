@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Panel } from '@/components/ui/Primitives';
 import { AnnouncementsPanel } from '@/components/AnnouncementsPanel';
+import { MyEnrollmentsPanel } from '@/components/MyEnrollmentsPanel';
 import { MembershipPanel } from '@/features/parent/MembershipPanel';
 import { api, ApiError } from '@/lib/api-client';
 
@@ -142,6 +143,10 @@ export function ParentDashboard() {
       </div>
 
       <AnnouncementsPanel />
+
+      <div style={{ marginBottom: 16 }}>
+        <MyEnrollmentsPanel showStudentName />
+      </div>
 
       {children.length === 0 ? (
         <Panel title="No children linked yet">

@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { CreateEnrollmentDto, ENROLLMENT_STATUSES, type EnrollmentStatus } from './dto/create-enrollment.dto';
 import { UpdateEnrollmentDto } from './dto/update-enrollment.dto';
 import {
@@ -117,6 +118,38 @@ export class EnrollmentsService {
     });
     if (!enrollment) throw new NotFoundException('Enrollment not found');
     return enrollment;
+  }
+
+  /// Read-only view for the portals: a student sees their own enrollments, a
+  /// parent sees every linked child's. Anyone else gets an empty list.
+  async findForUser(user: AuthenticatedUser) {
+    let studentIds: string[] = [];
+
+    if (user.role === 'STUDENT') {
+      const profile = await this.prisma.studentProfile.findUnique({
+        where: { userId: user.userId },
+        select: { id: true }
+      });
+      if (!profile) return [];
+      studentIds = [profile.id];
+    } else if (user.role === 'PARENT') {
+      const profile = await this.prisma.parentProfile.findUnique({
+        where: { userId: user.userId },
+        select: { studentLinks: { select: { studentId: true } } }
+      });
+      if (!profile) return [];
+      studentIds = profile.studentLinks.map((l) => l.studentId);
+    } else {
+      return [];
+    }
+
+    if (studentIds.length === 0) return [];
+
+    return this.prisma.enrollment.findMany({
+      where: { studentId: { in: studentIds } },
+      orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
+      include: this.detailInclude
+    });
   }
 
   async update(id: string, dto: UpdateEnrollmentDto, byUserId?: string) {

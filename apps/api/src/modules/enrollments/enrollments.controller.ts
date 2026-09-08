@@ -37,6 +37,15 @@ export class EnrollmentsController {
     return this.enrollmentsService.findAll({ status, deliveryType, studentId, schoolGroupId });
   }
 
+  // The portal view: students/parents read their own enrollments. Declared
+  // before ':id' so "mine" isn't captured as an id, and given its own
+  // @Roles which overrides the class-level ADMIN restriction.
+  @Get('mine')
+  @Roles('STUDENT', 'PARENT', 'ADMIN')
+  mine(@CurrentUser() user: AuthenticatedUser) {
+    return this.enrollmentsService.findForUser(user);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.enrollmentsService.findOne(id);

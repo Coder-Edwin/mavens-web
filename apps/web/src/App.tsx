@@ -11,6 +11,9 @@ import { AdminOverview } from '@/features/admin/AdminOverview';
 import { ArticlesAdmin } from '@/features/admin/ArticlesAdmin';
 import { LeadsAdmin } from '@/features/admin/LeadsAdmin';
 import { AnnouncementsAdmin } from '@/features/admin/AnnouncementsAdmin';
+import { SchoolGroupsAdmin } from '@/features/admin/SchoolGroupsAdmin';
+import { EnrollmentsAdmin } from '@/features/admin/EnrollmentsAdmin';
+import { PlacementsAdmin } from '@/features/admin/PlacementsAdmin';
 import { CoachDashboard } from '@/features/coach/CoachDashboard';
 import { StudentDashboard } from '@/features/student/StudentDashboard';
 import { ParentDashboard } from '@/features/parent/ParentDashboard';
@@ -51,6 +54,9 @@ function AuthenticatedApp() {
             <Route path="articles" element={<ArticlesAdmin />} />
             <Route path="leads" element={<LeadsAdmin />} />
             <Route path="announcements" element={<AnnouncementsAdmin />} />
+            <Route path="school-groups" element={<SchoolGroupsAdmin />} />
+            <Route path="enrollments" element={<EnrollmentsAdmin />} />
+            <Route path="placements" element={<PlacementsAdmin />} />
           </>
         )}
         <Route path="*" element={<Navigate to="/app" replace />} />

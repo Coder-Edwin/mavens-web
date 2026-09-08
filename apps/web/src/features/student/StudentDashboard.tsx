@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Panel } from '@/components/ui/Primitives';
 import { AnnouncementsPanel } from '@/components/AnnouncementsPanel';
+import { MyEnrollmentsPanel } from '@/components/MyEnrollmentsPanel';
 import { api, ApiError } from '@/lib/api-client';
 
 interface PuzzleSetSummary {
@@ -99,6 +100,8 @@ export function StudentDashboard() {
       </div>
 
       <AnnouncementsPanel />
+
+      <MyEnrollmentsPanel />
 
       <div className="page-head">
         <div className="page-title" style={{ fontSize: 19 }}>

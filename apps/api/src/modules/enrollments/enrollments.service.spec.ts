@@ -7,6 +7,7 @@ describe('EnrollmentsService', () => {
   let service: EnrollmentsService;
   let prisma: {
     studentProfile: { findUnique: jest.Mock };
+    parentProfile: { findUnique: jest.Mock };
     schoolGroup: { findUnique: jest.Mock };
     coachProfile: { findUnique: jest.Mock };
     enrollment: {
@@ -21,6 +22,7 @@ describe('EnrollmentsService', () => {
   beforeEach(async () => {
     prisma = {
       studentProfile: { findUnique: jest.fn().mockResolvedValue({ id: 'stu-1' }) },
+      parentProfile: { findUnique: jest.fn() },
       schoolGroup: { findUnique: jest.fn().mockResolvedValue({ id: 'sg-1', institutionName: 'Riverside' }) },
       coachProfile: { findUnique: jest.fn().mockResolvedValue({ id: 'coach-1' }) },
       enrollment: {
@@ -129,6 +131,44 @@ describe('EnrollmentsService', () => {
     it('throws when the enrollment is missing', async () => {
       prisma.enrollment.findUnique.mockResolvedValue(null);
       await expect(service.findOne('nope')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('findForUser', () => {
+    const user = (over: Record<string, unknown>) => ({
+      userId: 'u1',
+      email: 'u@x.com',
+      role: 'STUDENT',
+      isCoach: false,
+      ...over
+    });
+
+    it('returns a student’s own enrollments', async () => {
+      prisma.studentProfile.findUnique.mockResolvedValue({ id: 'stu-1' });
+      await service.findForUser(user({ role: 'STUDENT' }) as never);
+      expect(prisma.enrollment.findMany.mock.calls[0][0].where).toEqual({
+        studentId: { in: ['stu-1'] }
+      });
+    });
+
+    it('returns every linked child’s enrollments for a parent', async () => {
+      prisma.parentProfile.findUnique.mockResolvedValue({
+        studentLinks: [{ studentId: 'stu-1' }, { studentId: 'stu-2' }]
+      });
+      await service.findForUser(user({ role: 'PARENT' }) as never);
+      expect(prisma.enrollment.findMany.mock.calls[0][0].where).toEqual({
+        studentId: { in: ['stu-1', 'stu-2'] }
+      });
+    });
+
+    it('returns an empty list when the student has no profile', async () => {
+      prisma.studentProfile.findUnique.mockResolvedValue(null);
+      await expect(service.findForUser(user({ role: 'STUDENT' }) as never)).resolves.toEqual([]);
+      expect(prisma.enrollment.findMany).not.toHaveBeenCalled();
+    });
+
+    it('returns an empty list for an admin', async () => {
+      await expect(service.findForUser(user({ role: 'ADMIN' }) as never)).resolves.toEqual([]);
     });
   });
 

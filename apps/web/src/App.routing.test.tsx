@@ -43,6 +43,45 @@ vi.mock('@/lib/leads', async (importOriginal) => {
   };
 });
 
+vi.mock('@/lib/school-groups', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/school-groups')>();
+  return {
+    ...actual,
+    schoolGroupsApi: {
+      ...actual.schoolGroupsApi,
+      list: vi.fn().mockResolvedValue([])
+    }
+  };
+});
+
+vi.mock('@/lib/enrollments', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/enrollments')>();
+  return {
+    ...actual,
+    enrollmentsApi: {
+      ...actual.enrollmentsApi,
+      list: vi.fn().mockResolvedValue([]),
+      mine: vi.fn().mockResolvedValue([])
+    }
+  };
+});
+
+vi.mock('@/lib/placements', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/placements')>();
+  return {
+    ...actual,
+    placementsApi: { ...actual.placementsApi, list: vi.fn().mockResolvedValue([]) }
+  };
+});
+
+vi.mock('@/lib/students', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/students')>();
+  return {
+    ...actual,
+    studentsApi: { ...actual.studentsApi, list: vi.fn().mockResolvedValue([]) }
+  };
+});
+
 vi.mock('@/lib/announcements', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/announcements')>();
   return {
@@ -159,6 +198,24 @@ describe('AppRoutes', () => {
     seedSession('ADMIN');
     renderAt('/app/announcements');
     expect(await screen.findByRole('button', { name: /send announcement/i })).toBeInTheDocument();
+  });
+
+  it('renders the enrollments admin at /app/enrollments for a signed-in admin', async () => {
+    seedSession('ADMIN');
+    renderAt('/app/enrollments');
+    expect(await screen.findByRole('button', { name: /new enrollment/i })).toBeInTheDocument();
+  });
+
+  it('renders the placement queue at /app/placements for a signed-in admin', async () => {
+    seedSession('ADMIN');
+    renderAt('/app/placements');
+    expect(await screen.findByRole('button', { name: /schedule assessment/i })).toBeInTheDocument();
+  });
+
+  it('renders the partner schools admin at /app/school-groups for a signed-in admin', async () => {
+    seedSession('ADMIN');
+    renderAt('/app/school-groups');
+    expect(await screen.findByRole('button', { name: /new school group/i })).toBeInTheDocument();
   });
 
   it('gives every signed-in role the play lobby at /app/play', async () => {

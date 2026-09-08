@@ -8,6 +8,7 @@ import type { Lead, LeadStatus } from '@/lib/leads';
 const listCalls: (LeadStatus | undefined)[] = [];
 const updateCalls: { id: string; patch: { status?: LeadStatus; notes?: string } }[] = [];
 const removeCalls: string[] = [];
+const convertCalls: { id: string; input: unknown }[] = [];
 let listImpl: (status?: LeadStatus) => Promise<Lead[]>;
 
 vi.mock('@/lib/leads', async (importOriginal) => {
@@ -24,11 +25,29 @@ vi.mock('@/lib/leads', async (importOriginal) => {
         updateCalls.push({ id, patch });
         return Promise.resolve({} as Lead);
       },
+      convert: (id: string, input: unknown) => {
+        convertCalls.push({ id, input });
+        return Promise.resolve({
+          student: { id: 'stu1', firstName: 'Faith', lastName: 'Wambui' },
+          studentTempPassword: 'abc123',
+          parentTempPassword: 'def456',
+          enrollment: null,
+          placement: { id: 'pa1' }
+        });
+      },
       remove: (id: string) => {
         removeCalls.push(id);
         return Promise.resolve({ id });
       }
     }
+  };
+});
+
+vi.mock('@/lib/school-groups', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/school-groups')>();
+  return {
+    ...actual,
+    schoolGroupsApi: { list: () => Promise.resolve([]), get: vi.fn(), create: vi.fn(), update: vi.fn(), remove: vi.fn() }
   };
 });
 
@@ -59,6 +78,7 @@ beforeEach(() => {
   listCalls.length = 0;
   updateCalls.length = 0;
   removeCalls.length = 0;
+  convertCalls.length = 0;
   listImpl = async () => [
     lead({ id: 'l1', parentName: 'Grace Wambui', email: 'grace@example.com', status: 'NEW' }),
     lead({
@@ -100,6 +120,30 @@ describe('LeadsAdmin', () => {
     await user.selectOptions(within(row).getByRole('combobox'), 'ENROLLED');
 
     expect(updateCalls[0]).toEqual({ id: 'l1', patch: { status: 'ENROLLED' } });
+  });
+
+  it('converts a lead, prefilling the student name and showing temp passwords', async () => {
+    const user = userEvent.setup();
+    renderAdmin();
+    const table = await screen.findByRole('table');
+    const row = within(table).getByText('Grace Wambui').closest('tr') as HTMLElement;
+
+    await user.click(within(row).getByRole('button', { name: 'Convert' }));
+    // childName "Faith" prefills the first-name field
+    expect(screen.getByLabelText('Student first name')).toHaveValue('Faith');
+
+    await user.type(screen.getByLabelText('Student last name'), 'Wambui');
+    await user.type(screen.getByLabelText(/Student login email/), 'faith@example.com');
+    await user.click(screen.getByRole('button', { name: 'Convert lead' }));
+
+    expect(convertCalls).toHaveLength(1);
+    expect(convertCalls[0].id).toBe('l1');
+    expect(convertCalls[0].input).toMatchObject({
+      studentFirstName: 'Faith',
+      studentEmail: 'faith@example.com',
+      linkParent: true
+    });
+    expect(await screen.findByText(/Student temp password:/)).toBeInTheDocument();
   });
 
   it('deletes a lead only after confirmation', async () => {
