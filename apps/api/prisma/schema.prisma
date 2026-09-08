@@ -105,6 +105,8 @@ model StudentProfile {
   badges           StudentBadge[]
   enrollments      Enrollment[]
   placements       PlacementAssessment[]
+  courseAssignments CourseAssignment[]
+  lessonCompletions LessonCompletion[]
   convertedFromLead Lead?
 
   @@index([lastName, firstName])
@@ -900,6 +902,18 @@ enum PayoutStatus {
   PAID
 }
 
+enum CourseStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum CourseAssignmentStatus {
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+}
+
 /// What a client pays. Resolution for an enrollment picks the most specific
 /// ACTIVE, in-effect card: exact (deliveryType+level+clientType) beats
 /// deliveryType+level beats deliveryType+clientType beats deliveryType-only.
@@ -1012,6 +1026,93 @@ model PayoutItem {
 
   @@unique([payoutRunId, coachId])
   @@index([coachId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Courses (Phase 4) — self-paced chess curriculum: Course > CourseModule
+// > CourseLesson. Students get a CourseAssignment; per-lesson progress is a
+// LessonCompletion row.
+// ─────────────────────────────────────────────────────────────
+
+model Course {
+  id             String        @id @default(uuid())
+  slug           String        @unique
+  title          String
+  summary        String?       @db.Text
+  level          StudentLevel?
+  status         CourseStatus  @default(DRAFT)
+  coverImageUrl  String?
+  estimatedHours Int?
+  createdById    String? // User id, no FK (matches EnrollmentEvent.byUserId)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  modules     CourseModule[]
+  assignments CourseAssignment[]
+
+  @@index([status, level])
+}
+
+model CourseModule {
+  id        String   @id @default(uuid())
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title     String
+  summary   String?  @db.Text
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lessons CourseLesson[]
+
+  @@index([courseId, position])
+}
+
+model CourseLesson {
+  id               String       @id @default(uuid())
+  moduleId         String
+  module           CourseModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  title            String
+  body             String       @db.Text
+  fen              String? // a position to study alongside the lesson
+  videoUrl         String?
+  estimatedMinutes Int?
+  position         Int          @default(0)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  completions LessonCompletion[]
+
+  @@index([moduleId, position])
+}
+
+model CourseAssignment {
+  id           String                 @id @default(uuid())
+  courseId     String
+  course       Course                 @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  studentId    String
+  student      StudentProfile         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  assignedById String? // User id, no FK
+  status       CourseAssignmentStatus @default(ASSIGNED)
+  assignedAt   DateTime               @default(now())
+  dueAt        DateTime?
+  startedAt    DateTime?
+  completedAt  DateTime?
+
+  @@unique([courseId, studentId])
+  @@index([studentId, status])
+}
+
+model LessonCompletion {
+  id          String       @id @default(uuid())
+  lessonId    String
+  lesson      CourseLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  studentId   String
+  student     StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  completedAt DateTime     @default(now())
+
+  @@unique([lessonId, studentId])
+  @@index([studentId])
 }
 
 model Article {

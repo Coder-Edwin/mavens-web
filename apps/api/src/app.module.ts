@@ -21,6 +21,7 @@ import { ClassSchedulesModule } from './modules/class-schedules/class-schedules.
 import { RateCardsModule } from './modules/rate-cards/rate-cards.module';
 import { InvoicesModule } from './modules/invoices/invoices.module';
 import { PayoutsModule } from './modules/payouts/payouts.module';
+import { CoursesModule } from './modules/courses/courses.module';
 
 @Module({
   imports: [
@@ -45,7 +46,8 @@ import { PayoutsModule } from './modules/payouts/payouts.module';
     ClassSchedulesModule,
     RateCardsModule,
     InvoicesModule,
-    PayoutsModule
+    PayoutsModule,
+    CoursesModule
   ]
 })
 export class AppModule {}
