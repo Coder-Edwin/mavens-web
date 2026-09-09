@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Chessboard } from 'react-chessboard';
 import { Chess } from 'chess.js';
@@ -6,6 +6,8 @@ import { Panel } from '@/components/ui/Primitives';
 import { CopyLinkButton } from '@/features/play/CopyLinkButton';
 import { ApiError } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth-context';
+import { isLegalTarget, lastMoveStyles, mergeStyles, moveHintStyles } from '@/lib/chess-hints';
+import { isSoundOn, playMoveSound, setSoundOn } from '@/lib/chess-sound';
 import {
   connectGameSocket,
   gamesApi,
@@ -43,6 +45,10 @@ export function GamePage() {
   const [boardWidth, setBoardWidth] = useState(440);
   const [joining, setJoining] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [soundOn, setSoundOnState] = useState(isSoundOn());
+  const prevMoveCount = useRef(0);
+  const primed = useRef(false);
 
   useLayoutEffect(() => {
     const measure = () => {
@@ -59,8 +65,12 @@ export function GamePage() {
     const c = new Chess();
     if (g.pgn && g.pgn.trim()) c.loadPgn(g.pgn);
     chess.current = c;
+    const history = c.history();
     setFen(c.fen());
-    setMoves(c.history());
+    setMoves(history);
+    // A full state sync (load / reconnect / join) is not a "move" — don't chime.
+    prevMoveCount.current = history.length;
+    setSelected(null);
     if (g.status === 'FINISHED' && g.result) {
       setOver({ result: g.result, reason: g.resultReason ?? '' });
     }
@@ -71,6 +81,7 @@ export function GamePage() {
     (async () => {
       try {
         applyGame(await gamesApi.get(id));
+        primed.current = true;
       } catch (err) {
         setError(err instanceof ApiError ? err.message : 'Could not load this game.');
         return;
@@ -96,6 +107,16 @@ export function GamePage() {
     return () => live?.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // Chime on every new half-move (mine or the opponent's). A full state sync
+  // resets prevMoveCount in applyGame, so reconnects stay silent.
+  useEffect(() => {
+    if (primed.current && moves.length > prevMoveCount.current) {
+      const last = moves[moves.length - 1] ?? '';
+      playMoveSound(last.includes('x') ? 'capture' : 'move');
+    }
+    prevMoveCount.current = moves.length;
+  }, [moves]);
 
   async function joinGame() {
     if (!game) return;
@@ -139,7 +160,16 @@ export function GamePage() {
   const turn = chess.current.turn();
   const isMyTurn = !!myColor && game?.status === 'ACTIVE' && turn === myTurnChar && !over;
 
-  function onDrop(from: string, to: string): boolean {
+  const squareStyles = useMemo(() => {
+    const verbose = chess.current.history({ verbose: true }) as unknown as { from: string; to: string }[];
+    const last = verbose[verbose.length - 1];
+    return mergeStyles(
+      last ? lastMoveStyles(last.from, last.to) : {},
+      selected ? moveHintStyles(fen, selected) : {}
+    );
+  }, [fen, moves, selected]);
+
+  function tryMove(from: string, to: string): boolean {
     if (!socket.current || !isMyTurn) return false;
     let mv;
     try {
@@ -150,8 +180,39 @@ export function GamePage() {
     if (!mv) return false;
     setFen(chess.current.fen());
     setMoves(chess.current.history());
+    setSelected(null);
     socket.current.move({ from, to, promotion: 'q' });
     return true;
+  }
+
+  function onDrop(from: string, to: string): boolean {
+    return tryMove(from, to);
+  }
+
+  function onSquareClick(square: string) {
+    if (!isMyTurn) {
+      setSelected(null);
+      return;
+    }
+    if (selected) {
+      if (square === selected) {
+        setSelected(null);
+        return;
+      }
+      if (isLegalTarget(fen, selected, square)) {
+        tryMove(selected, square);
+        return;
+      }
+    }
+    const piece = chess.current.get(square as never) as { color: 'w' | 'b' } | null;
+    setSelected(piece && piece.color === myTurnChar ? square : null);
+  }
+
+  function toggleSound() {
+    const next = !soundOn;
+    setSoundOn(next);
+    setSoundOnState(next);
+    if (next) playMoveSound('move');
   }
 
   if (error && !game) {
@@ -194,7 +255,17 @@ export function GamePage() {
             </Link>
           </div>
         </div>
-        <CopyLinkButton value={inviteUrl} label="Copy game link" className="btn btn-ghost btn-sm" />
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={toggleSound}
+            aria-pressed={soundOn}
+            title={soundOn ? 'Mute move sounds' : 'Unmute move sounds'}
+          >
+            {soundOn ? '🔊' : '🔇'}
+          </button>
+          <CopyLinkButton value={inviteUrl} label="Copy game link" className="btn btn-ghost btn-sm" />
+        </div>
       </div>
 
       <div className="pl-game">
@@ -204,10 +275,15 @@ export function GamePage() {
             <Chessboard
               position={fen}
               onPieceDrop={onDrop}
+              onSquareClick={onSquareClick}
+              onPieceDragBegin={(_piece: string, sq: string) => {
+                if (isMyTurn) setSelected(sq);
+              }}
               boardOrientation={myColor ?? 'white'}
               boardWidth={boardWidth}
               arePiecesDraggable={isMyTurn}
               showBoardNotation
+              customSquareStyles={squareStyles}
               customBoardStyle={{ borderRadius: 8 }}
               customDarkSquareStyle={{ backgroundColor: '#6b7f63' }}
               customLightSquareStyle={{ backgroundColor: '#e9e6d8' }}

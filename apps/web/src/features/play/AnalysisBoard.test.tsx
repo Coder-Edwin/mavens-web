@@ -4,9 +4,18 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { AnalysisBoard } from './AnalysisBoard';
 
-// Stub the board: expose a couple of legal opening drops as buttons.
+// Stub the board: surface the drop + square-click handlers and the
+// computed square-style map so tests can drive and inspect them.
 vi.mock('react-chessboard', () => ({
-  Chessboard: ({ onPieceDrop }: { onPieceDrop: (a: string, b: string) => boolean }) => (
+  Chessboard: ({
+    onPieceDrop,
+    onSquareClick,
+    customSquareStyles
+  }: {
+    onPieceDrop: (a: string, b: string) => boolean;
+    onSquareClick?: (sq: string) => void;
+    customSquareStyles?: Record<string, unknown>;
+  }) => (
     <div>
       <button data-testid="drop-e2e4" onClick={() => onPieceDrop('e2', 'e4')}>
         board drop 1
@@ -17,6 +26,13 @@ vi.mock('react-chessboard', () => ({
       <button data-testid="drop-illegal" onClick={() => onPieceDrop('e2', 'e9')}>
         board drop illegal
       </button>
+      <button data-testid="sq-e2" onClick={() => onSquareClick?.('e2')}>
+        sq e2
+      </button>
+      <button data-testid="sq-e4" onClick={() => onSquareClick?.('e4')}>
+        sq e4
+      </button>
+      <div data-testid="styled-squares">{Object.keys(customSquareStyles ?? {}).sort().join(',')}</div>
     </div>
   )
 }));
@@ -90,5 +106,28 @@ describe('AnalysisBoard', () => {
     // fireEvent (not userEvent) so userEvent's own clipboard stub doesn't shadow ours
     fireEvent.click(screen.getByRole('button', { name: 'Copy FEN' }));
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining('4P3'));
+  });
+
+  it('shows legal-target squares when a piece is selected, and click-moves', () => {
+    renderBoard();
+    // nothing highlighted at the start
+    expect(screen.getByTestId('styled-squares').textContent).toBe('');
+
+    fireEvent.click(screen.getByTestId('sq-e2')); // select the e2 pawn
+    const styled = screen.getByTestId('styled-squares').textContent ?? '';
+    expect(styled.split(',').sort()).toEqual(['e2', 'e3', 'e4']); // from + two targets
+
+    fireEvent.click(screen.getByTestId('sq-e4')); // click a legal target -> move
+    expect(screen.getByRole('button', { name: 'e4' })).toBeInTheDocument(); // move-list chip
+    expect(screen.getByText(/ply 1\/1/)).toBeInTheDocument();
+  });
+
+  it('toggles the sound button label', async () => {
+    const user = userEvent.setup();
+    renderBoard();
+    const btn = screen.getByRole('button', { name: /Sound|Muted/ });
+    expect(btn).toHaveTextContent('Sound');
+    await user.click(btn);
+    expect(btn).toHaveTextContent('Muted');
   });
 });

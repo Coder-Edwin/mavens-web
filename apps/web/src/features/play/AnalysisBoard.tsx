@@ -11,22 +11,34 @@ import { Link } from 'react-router-dom';
 import { Chessboard } from 'react-chessboard';
 import { Chess } from 'chess.js';
 import { Panel } from '@/components/ui/Primitives';
+import {
+  isLegalTarget,
+  lastMoveStyles,
+  mergeStyles,
+  moveHintStyles,
+  ownerOf,
+  sideToMove as sideOf
+} from '@/lib/chess-hints';
+import { isSoundOn, playMoveSound, setSoundOn } from '@/lib/chess-sound';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
 interface Ply {
   san: string;
+  from: string;
+  to: string;
+  capture: boolean;
   fen: string; // position AFTER this move
 }
 
-// Rebuild the (san, fen-after) list by replaying SAN moves from a start FEN.
+// Rebuild the ply list by replaying SAN moves from a start FEN.
 function replay(startFen: string, sans: string[]): Ply[] {
   const c = new Chess(startFen);
   const out: Ply[] = [];
   for (const san of sans) {
     const m = c.move(san);
     if (!m) break;
-    out.push({ san: m.san, fen: c.fen() });
+    out.push({ san: m.san, from: m.from, to: m.to, capture: /[x]/.test(m.san), fen: c.fen() });
   }
   return out;
 }
@@ -39,6 +51,8 @@ export function AnalysisBoard() {
   const [loadText, setLoadText] = useState('');
   const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [soundOn, setSoundOnState] = useState(isSoundOn());
 
   const wrapRef = useRef<HTMLDivElement>(null);
   const [boardWidth, setBoardWidth] = useState(420);
@@ -54,9 +68,22 @@ export function AnalysisBoard() {
 
   const positionFen = cursor === 0 ? startFen : plies[cursor - 1].fen;
   const sideToMove = positionFen.split(' ')[1] === 'w' ? 'White' : 'Black';
+  const lastPly = cursor > 0 ? plies[cursor - 1] : null;
+
+  const squareStyles = useMemo(
+    () =>
+      mergeStyles(
+        lastPly ? lastMoveStyles(lastPly.from, lastPly.to) : {},
+        selected ? moveHintStyles(positionFen, selected) : {}
+      ),
+    [lastPly, selected, positionFen]
+  );
 
   const go = useCallback(
-    (next: number) => setCursor(Math.max(0, Math.min(plies.length, next))),
+    (next: number) => {
+      setSelected(null);
+      setCursor(Math.max(0, Math.min(plies.length, next)));
+    },
     [plies.length]
   );
 
@@ -72,21 +99,54 @@ export function AnalysisBoard() {
     return () => window.removeEventListener('keydown', onKey);
   }, [cursor, go, plies.length]);
 
-  function onDrop(from: string, to: string): boolean {
+  function applyMove(from: string, to: string): boolean {
     const c = new Chess(positionFen);
     try {
       const m = c.move({ from, to, promotion: 'q' });
       if (!m) return false;
+      const capture = /[x]/.test(m.san);
       // Playing from an earlier point rewrites the continuation from there.
       const kept = plies.slice(0, cursor);
-      setPlies([...kept, { san: m.san, fen: c.fen() }]);
+      setPlies([...kept, { san: m.san, from: m.from, to: m.to, capture, fen: c.fen() }]);
       setCursor(cursor + 1);
+      setSelected(null);
       setNote(null);
       setError(null);
+      playMoveSound(capture ? 'capture' : 'move');
       return true;
     } catch {
       return false;
     }
+  }
+
+  function onDrop(from: string, to: string): boolean {
+    return applyMove(from, to);
+  }
+
+  function onSquareClick(square: string) {
+    if (selected) {
+      if (square === selected) {
+        setSelected(null);
+        return;
+      }
+      if (isLegalTarget(positionFen, selected, square)) {
+        applyMove(selected, square);
+        return;
+      }
+    }
+    // select a piece belonging to the side to move
+    if (ownerOf(positionFen, square) === sideOf(positionFen)) {
+      setSelected(square);
+    } else {
+      setSelected(null);
+    }
+  }
+
+  function toggleSound() {
+    const next = !soundOn;
+    setSoundOn(next);
+    setSoundOnState(next);
+    if (next) playMoveSound('move');
   }
 
   function loadInput() {
@@ -179,12 +239,25 @@ export function AnalysisBoard() {
             <Link to="/app/play" style={{ color: 'var(--gold-soft)' }}>
               ← Play
             </Link>{' '}
-            · drag pieces to explore · ← → to step through moves
+            · click or drag a piece to see its moves · ← → to step through
           </div>
         </div>
-        <button className="btn btn-ghost btn-sm" onClick={() => setOrientation((o) => (o === 'white' ? 'black' : 'white'))}>
-          Flip board
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={toggleSound}
+            aria-pressed={soundOn}
+            title={soundOn ? 'Mute move sounds' : 'Unmute move sounds'}
+          >
+            {soundOn ? '🔊 Sound' : '🔇 Muted'}
+          </button>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => setOrientation((o) => (o === 'white' ? 'black' : 'white'))}
+          >
+            Flip board
+          </button>
+        </div>
       </div>
 
       <div className="grid-2" style={{ alignItems: 'start' }}>
@@ -192,9 +265,12 @@ export function AnalysisBoard() {
           <Chessboard
             position={positionFen}
             onPieceDrop={onDrop}
+            onSquareClick={onSquareClick}
+            onPieceDragBegin={(_piece: string, sq: string) => setSelected(sq)}
             boardOrientation={orientation}
             boardWidth={boardWidth}
             showBoardNotation
+            customSquareStyles={squareStyles}
             customBoardStyle={{ borderRadius: 8 }}
             customDarkSquareStyle={{ backgroundColor: '#6b7f63' }}
             customLightSquareStyle={{ backgroundColor: '#e9e6d8' }}
