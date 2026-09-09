@@ -11,15 +11,18 @@ import { Link } from 'react-router-dom';
 import { Chessboard } from 'react-chessboard';
 import { Chess } from 'chess.js';
 import { Panel } from '@/components/ui/Primitives';
+import { PromotionPicker, type PromotionChoice } from '@/features/play/PromotionPicker';
 import {
+  checkStyles,
   isLegalTarget,
+  isPromotionMove,
   lastMoveStyles,
   mergeStyles,
   moveHintStyles,
   ownerOf,
   sideToMove as sideOf
 } from '@/lib/chess-hints';
-import { isSoundOn, playMoveSound, setSoundOn } from '@/lib/chess-sound';
+import { isSoundOn, playMoveSound, setSoundOn, soundForSan } from '@/lib/chess-sound';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -53,6 +56,7 @@ export function AnalysisBoard() {
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [soundOn, setSoundOnState] = useState(isSoundOn());
+  const [promo, setPromo] = useState<{ from: string; to: string; color: 'w' | 'b' } | null>(null);
 
   const wrapRef = useRef<HTMLDivElement>(null);
   const [boardWidth, setBoardWidth] = useState(420);
@@ -74,6 +78,7 @@ export function AnalysisBoard() {
     () =>
       mergeStyles(
         lastPly ? lastMoveStyles(lastPly.from, lastPly.to) : {},
+        checkStyles(positionFen),
         selected ? moveHintStyles(positionFen, selected) : {}
       ),
     [lastPly, selected, positionFen]
@@ -99,20 +104,23 @@ export function AnalysisBoard() {
     return () => window.removeEventListener('keydown', onKey);
   }, [cursor, go, plies.length]);
 
-  function applyMove(from: string, to: string): boolean {
+  function applyMove(from: string, to: string, promotion?: PromotionChoice): boolean {
     const c = new Chess(positionFen);
     try {
-      const m = c.move({ from, to, promotion: 'q' });
+      const m = c.move({ from, to, promotion: promotion ?? 'q' });
       if (!m) return false;
-      const capture = /[x]/.test(m.san);
       // Playing from an earlier point rewrites the continuation from there.
       const kept = plies.slice(0, cursor);
-      setPlies([...kept, { san: m.san, from: m.from, to: m.to, capture, fen: c.fen() }]);
+      setPlies([
+        ...kept,
+        { san: m.san, from: m.from, to: m.to, capture: /[x]/.test(m.san), fen: c.fen() }
+      ]);
       setCursor(cursor + 1);
       setSelected(null);
+      setPromo(null);
       setNote(null);
       setError(null);
-      playMoveSound(capture ? 'capture' : 'move');
+      playMoveSound(soundForSan(m.san));
       return true;
     } catch {
       return false;
@@ -120,6 +128,11 @@ export function AnalysisBoard() {
   }
 
   function onDrop(from: string, to: string): boolean {
+    if (isPromotionMove(positionFen, from, to)) {
+      setPromo({ from, to, color: sideOf(positionFen) });
+      setSelected(null);
+      return false; // pawn snaps back; the picker overlay takes it from here
+    }
     return applyMove(from, to);
   }
 
@@ -130,7 +143,12 @@ export function AnalysisBoard() {
         return;
       }
       if (isLegalTarget(positionFen, selected, square)) {
-        applyMove(selected, square);
+        if (isPromotionMove(positionFen, selected, square)) {
+          setPromo({ from: selected, to: square, color: sideOf(positionFen) });
+          setSelected(null);
+        } else {
+          applyMove(selected, square);
+        }
         return;
       }
     }
@@ -261,12 +279,13 @@ export function AnalysisBoard() {
       </div>
 
       <div className="grid-2" style={{ alignItems: 'start' }}>
-        <div ref={wrapRef}>
+        <div ref={wrapRef} style={{ position: 'relative' }}>
           <Chessboard
             position={positionFen}
             onPieceDrop={onDrop}
             onSquareClick={onSquareClick}
             onPieceDragBegin={(_piece: string, sq: string) => setSelected(sq)}
+            onPromotionCheck={() => false}
             boardOrientation={orientation}
             boardWidth={boardWidth}
             showBoardNotation
@@ -276,6 +295,13 @@ export function AnalysisBoard() {
             customLightSquareStyle={{ backgroundColor: '#e9e6d8' }}
             customNotationStyle={{ fontSize: '10px', fontWeight: 600 }}
           />
+          {promo && (
+            <PromotionPicker
+              color={promo.color}
+              onPick={(choice) => applyMove(promo.from, promo.to, choice)}
+              onCancel={() => setPromo(null)}
+            />
+          )}
           <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
             <NavBtn onClick={() => go(0)} disabled={cursor === 0}>⏮</NavBtn>
             <NavBtn onClick={() => go(cursor - 1)} disabled={cursor === 0}>◀</NavBtn>

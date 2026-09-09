@@ -14,6 +14,10 @@ const CAPTURE: CSSProperties = {
 };
 const SELECTED: CSSProperties = { boxShadow: 'inset 0 0 0 100px rgba(255,213,79,0.40)' };
 const LAST_MOVE: CSSProperties = { boxShadow: 'inset 0 0 0 100px rgba(155,199,0,0.26)' };
+const IN_CHECK: CSSProperties = {
+  background:
+    'radial-gradient(circle, rgba(220,32,32,0.85) 0%, rgba(220,32,32,0.40) 55%, transparent 72%)'
+};
 
 interface VerboseMove {
   to: string;
@@ -49,6 +53,25 @@ export function lastMoveStyles(from?: string | null, to?: string | null): Square
   if (from) styles[from] = { ...LAST_MOVE };
   if (to) styles[to] = { ...LAST_MOVE };
   return styles;
+}
+
+/** A red glow on the side-to-move's king when it is in check. */
+export function checkStyles(fen: string): SquareStyles {
+  try {
+    const chess = new Chess(fen);
+    if (!chess.inCheck()) return {};
+    const stm = chess.turn();
+    for (const rank of chess.board()) {
+      for (const cell of rank) {
+        if (cell && cell.type === 'k' && cell.color === stm) {
+          return { [cell.square]: { ...IN_CHECK } };
+        }
+      }
+    }
+  } catch {
+    /* invalid fen -> no highlight */
+  }
+  return {};
 }
 
 /** Later maps win on key collisions; box-shadows are merged so a square can
@@ -89,6 +112,18 @@ export function isLegalTarget(fen: string, from: string, to: string): boolean {
       to: string;
     }[];
     return moves.some((m) => m.to === to);
+  } catch {
+    return false;
+  }
+}
+
+/** Would moving from→to promote a pawn? (pawn on `from`, last rank on `to`) */
+export function isPromotionMove(fen: string, from: string, to: string): boolean {
+  try {
+    const piece = new Chess(fen).get(from as never) as { type: string; color: 'w' | 'b' } | null;
+    if (!piece || piece.type !== 'p') return false;
+    const rank = to[1];
+    return (piece.color === 'w' && rank === '8') || (piece.color === 'b' && rank === '1');
   } catch {
     return false;
   }

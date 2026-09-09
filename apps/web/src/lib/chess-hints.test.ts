@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
+  checkStyles,
   isLegalTarget,
+  isPromotionMove,
   lastMoveStyles,
   mergeStyles,
   moveHintStyles,
@@ -48,6 +50,32 @@ describe('ownerOf / sideToMove', () => {
   it('reads the side to move from the FEN', () => {
     expect(sideToMove(START)).toBe('w');
     expect(sideToMove(START.replace(' w ', ' b '))).toBe('b');
+  });
+});
+
+describe('checkStyles', () => {
+  it('glows the side-to-move king when it is in check', () => {
+    // black king on e8 checked by a white queen on f7
+    const fen = 'rnbqkbnr/pppppQ1p/8/8/8/8/PPPP1PPP/RNB1KBNR b KQkq - 0 1';
+    const styles = checkStyles(fen);
+    expect(Object.keys(styles)).toEqual(['e8']);
+    expect(styles.e8.background).toContain('rgba(220,32,32');
+  });
+
+  it('is empty when no one is in check', () => {
+    expect(checkStyles('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')).toEqual({});
+  });
+});
+
+describe('isPromotionMove', () => {
+  it('is true for a pawn stepping onto the last rank', () => {
+    const fen = '4k3/4P3/8/8/8/8/8/4K3 w - - 0 1';
+    expect(isPromotionMove(fen, 'e7', 'e8')).toBe(true);
+  });
+  it('is false for a non-pawn or a non-final rank', () => {
+    const start = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+    expect(isPromotionMove(start, 'e2', 'e4')).toBe(false);
+    expect(isPromotionMove(start, 'g1', 'f3')).toBe(false);
   });
 });
 

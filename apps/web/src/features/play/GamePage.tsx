@@ -6,8 +6,16 @@ import { Panel } from '@/components/ui/Primitives';
 import { CopyLinkButton } from '@/features/play/CopyLinkButton';
 import { ApiError } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth-context';
-import { isLegalTarget, lastMoveStyles, mergeStyles, moveHintStyles } from '@/lib/chess-hints';
-import { isSoundOn, playMoveSound, setSoundOn } from '@/lib/chess-sound';
+import { PromotionPicker, type PromotionChoice } from '@/features/play/PromotionPicker';
+import {
+  checkStyles,
+  isLegalTarget,
+  isPromotionMove,
+  lastMoveStyles,
+  mergeStyles,
+  moveHintStyles
+} from '@/lib/chess-hints';
+import { isSoundOn, playMoveSound, setSoundOn, soundForSan } from '@/lib/chess-sound';
 import {
   connectGameSocket,
   gamesApi,
@@ -47,6 +55,7 @@ export function GamePage() {
   const [cancelling, setCancelling] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [soundOn, setSoundOnState] = useState(isSoundOn());
+  const [promo, setPromo] = useState<{ from: string; to: string; color: 'w' | 'b' } | null>(null);
   const prevMoveCount = useRef(0);
   const primed = useRef(false);
 
@@ -112,8 +121,7 @@ export function GamePage() {
   // resets prevMoveCount in applyGame, so reconnects stay silent.
   useEffect(() => {
     if (primed.current && moves.length > prevMoveCount.current) {
-      const last = moves[moves.length - 1] ?? '';
-      playMoveSound(last.includes('x') ? 'capture' : 'move');
+      playMoveSound(soundForSan(moves[moves.length - 1] ?? ''));
     }
     prevMoveCount.current = moves.length;
   }, [moves]);
@@ -165,15 +173,16 @@ export function GamePage() {
     const last = verbose[verbose.length - 1];
     return mergeStyles(
       last ? lastMoveStyles(last.from, last.to) : {},
+      checkStyles(fen),
       selected ? moveHintStyles(fen, selected) : {}
     );
   }, [fen, moves, selected]);
 
-  function tryMove(from: string, to: string): boolean {
+  function tryMove(from: string, to: string, promotion?: PromotionChoice): boolean {
     if (!socket.current || !isMyTurn) return false;
     let mv;
     try {
-      mv = chess.current.move({ from, to, promotion: 'q' });
+      mv = chess.current.move({ from, to, promotion: promotion ?? 'q' });
     } catch {
       return false;
     }
@@ -181,11 +190,18 @@ export function GamePage() {
     setFen(chess.current.fen());
     setMoves(chess.current.history());
     setSelected(null);
-    socket.current.move({ from, to, promotion: 'q' });
+    setPromo(null);
+    socket.current.move({ from, to, promotion: promotion ?? 'q' });
     return true;
   }
 
   function onDrop(from: string, to: string): boolean {
+    if (!isMyTurn) return false;
+    if (isPromotionMove(fen, from, to)) {
+      setPromo({ from, to, color: myTurnChar });
+      setSelected(null);
+      return false;
+    }
     return tryMove(from, to);
   }
 
@@ -200,7 +216,12 @@ export function GamePage() {
         return;
       }
       if (isLegalTarget(fen, selected, square)) {
-        tryMove(selected, square);
+        if (isPromotionMove(fen, selected, square)) {
+          setPromo({ from: selected, to: square, color: myTurnChar });
+          setSelected(null);
+        } else {
+          tryMove(selected, square);
+        }
         return;
       }
     }
@@ -271,7 +292,7 @@ export function GamePage() {
       <div className="pl-game">
         <div>
           <Seat email={topEmail} color={topColor} isTurn={game.status === 'ACTIVE' && !over && turn === topColor} />
-          <div className="pl-board-wrap" ref={wrapRef}>
+          <div className="pl-board-wrap" ref={wrapRef} style={{ position: 'relative' }}>
             <Chessboard
               position={fen}
               onPieceDrop={onDrop}
@@ -279,6 +300,7 @@ export function GamePage() {
               onPieceDragBegin={(_piece: string, sq: string) => {
                 if (isMyTurn) setSelected(sq);
               }}
+              onPromotionCheck={() => false}
               boardOrientation={myColor ?? 'white'}
               boardWidth={boardWidth}
               arePiecesDraggable={isMyTurn}
@@ -289,6 +311,13 @@ export function GamePage() {
               customLightSquareStyle={{ backgroundColor: '#e9e6d8' }}
               customNotationStyle={{ fontSize: '10px', fontWeight: 600 }}
             />
+            {promo && (
+              <PromotionPicker
+                color={promo.color}
+                onPick={(choice) => tryMove(promo.from, promo.to, choice)}
+                onCancel={() => setPromo(null)}
+              />
+            )}
           </div>
           <Seat
             email={bottomEmail}

@@ -26,6 +26,9 @@ vi.mock('react-chessboard', () => ({
       <button data-testid="drop-illegal" onClick={() => onPieceDrop('e2', 'e9')}>
         board drop illegal
       </button>
+      <button data-testid="drop-e7e8" onClick={() => onPieceDrop('e7', 'e8')}>
+        board drop promo
+      </button>
       <button data-testid="sq-e2" onClick={() => onSquareClick?.('e2')}>
         sq e2
       </button>
@@ -129,5 +132,23 @@ describe('AnalysisBoard', () => {
     expect(btn).toHaveTextContent('Sound');
     await user.click(btn);
     expect(btn).toHaveTextContent('Muted');
+  });
+
+  it('asks which piece to promote to when a pawn reaches the last rank', async () => {
+    const user = userEvent.setup();
+    renderBoard();
+    // a position with a white pawn one step from promoting
+    await user.type(
+      screen.getByPlaceholderText(/Paste a FEN or PGN/),
+      '8/4P3/8/2k5/8/8/8/4K3 w - - 0 1'
+    );
+    await user.click(screen.getByRole('button', { name: 'Load' }));
+
+    fireEvent.click(screen.getByTestId('drop-e7e8'));
+    expect(await screen.findByRole('dialog', { name: /promotion/i })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Promote to Rook' }));
+    expect(screen.getByRole('button', { name: 'e8=R' })).toBeInTheDocument(); // move-list chip
+    expect(screen.queryByRole('dialog', { name: /promotion/i })).not.toBeInTheDocument();
   });
 });

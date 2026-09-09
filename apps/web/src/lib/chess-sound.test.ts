@@ -1,5 +1,17 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { isSoundOn, playMoveSound, setSoundOn } from './chess-sound';
+import { isSoundOn, playMoveSound, setSoundOn, soundForSan } from './chess-sound';
+
+describe('soundForSan', () => {
+  it('maps SAN to the right sound', () => {
+    expect(soundForSan('e4')).toBe('move');
+    expect(soundForSan('Nxe5')).toBe('capture');
+    expect(soundForSan('O-O')).toBe('castle');
+    expect(soundForSan('O-O-O')).toBe('castle');
+    expect(soundForSan('exd8=Q+')).toBe('promote');
+    expect(soundForSan('Qh5+')).toBe('check');
+    expect(soundForSan('')).toBe('move');
+  });
+});
 
 describe('chess-sound', () => {
   beforeEach(() => {
