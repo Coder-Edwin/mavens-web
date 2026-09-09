@@ -6,7 +6,7 @@ import {
   NotFoundException
 } from '@nestjs/common';
 import { Chess } from 'chess.js';
-import { GamesService, inspectPosition } from './games.service';
+import { GamesService, clockSnapshot, inspectPosition } from './games.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
 const WHITE = 'user-white';
@@ -44,6 +44,37 @@ describe('inspectPosition', () => {
 
   it('returns null for an ongoing position', () => {
     expect(inspectPosition(new Chess()).over).toBeNull();
+  });
+});
+
+describe('clockSnapshot', () => {
+  const now = 1_000_000;
+  it('ticks the side to move down and freezes the other', () => {
+    const snap = clockSnapshot(
+      { initialSeconds: 600, whiteMs: 300_000, blackMs: 250_000, clockUpdatedAt: new Date(now - 5_000) },
+      'w',
+      'ACTIVE',
+      now
+    );
+    expect(snap.whiteMs).toBe(295_000);
+    expect(snap.blackMs).toBe(250_000);
+    expect(snap.running).toBe('w');
+  });
+
+  it('does not tick once the game is finished', () => {
+    const snap = clockSnapshot(
+      { initialSeconds: 600, whiteMs: 300_000, blackMs: 250_000, clockUpdatedAt: new Date(now - 5_000) },
+      'w',
+      'FINISHED',
+      now
+    );
+    expect(snap).toMatchObject({ whiteMs: 300_000, blackMs: 250_000, running: null });
+  });
+
+  it('returns nulls for an untimed game', () => {
+    expect(
+      clockSnapshot({ initialSeconds: null, whiteMs: null, blackMs: null, clockUpdatedAt: null }, 'w', 'ACTIVE')
+    ).toEqual({ whiteMs: null, blackMs: null, running: null });
   });
 });
 
@@ -398,6 +429,84 @@ describe('GamesService', () => {
         blackId: { not: WHITE }
       });
       expect(mineArgs.where.OR).toEqual([{ whiteId: WHITE }, { blackId: WHITE }]);
+    });
+  });
+
+  describe('clock', () => {
+    it('stores a supported time control on create and rejects an unsupported one', async () => {
+      await service.create(WHITE, 'white', 1200);
+      expect(prisma.game.create.mock.calls[0][0].data.initialSeconds).toBe(1200);
+      await expect(service.create(WHITE, 'white', 137)).rejects.toThrow(BadRequestException);
+    });
+
+    it('starts both clocks when the second player joins a timed game', async () => {
+      row = gameRow({ status: 'PENDING', blackId: null, initialSeconds: 600 });
+      await service.join('g1', BLACK);
+      expect(row!.status).toBe('ACTIVE');
+      expect(row!.whiteMs).toBe(600_000);
+      expect(row!.blackMs).toBe(600_000);
+      expect(row!.clockUpdatedAt).toBeInstanceOf(Date);
+    });
+
+    it('deducts the mover’s elapsed time and restamps the clock on a move', async () => {
+      const started = new Date(Date.now() - 8_000); // white has been thinking 8s
+      row = gameRow({
+        initialSeconds: 600,
+        whiteMs: 600_000,
+        blackMs: 600_000,
+        clockUpdatedAt: started
+      });
+      await service.applyMove('g1', WHITE, { from: 'e2', to: 'e4' });
+      expect(row!.whiteMs).toBeLessThanOrEqual(592_000);
+      expect(row!.whiteMs).toBeGreaterThan(590_000);
+      expect(row!.blackMs).toBe(600_000); // untouched — black's clock now runs
+      expect(row!.clockUpdatedAt.getTime()).toBeGreaterThan(started.getTime());
+    });
+
+    it('flags the mover who tries to move after their own clock expired', async () => {
+      row = gameRow({
+        initialSeconds: 600,
+        whiteMs: 3_000,
+        blackMs: 600_000,
+        clockUpdatedAt: new Date(Date.now() - 5_000)
+      });
+      const res = await service.applyMove('g1', WHITE, { from: 'e2', to: 'e4' });
+      expect(res.move).toBeNull();
+      expect(res.over).toEqual({ result: 'BLACK_WINS', reason: 'timeout' });
+      expect(row!.status).toBe('FINISHED');
+      expect(row!.result).toBe('BLACK_WINS');
+      expect(row!.resultReason).toBe('timeout');
+    });
+
+    describe('flagTimeout', () => {
+      it('finishes the game for the running side once their clock hits zero', async () => {
+        row = gameRow({
+          initialSeconds: 600,
+          whiteMs: 1_000,
+          blackMs: 600_000,
+          clockUpdatedAt: new Date(Date.now() - 4_000)
+        });
+        const res = await service.flagTimeout('g1');
+        expect(res?.over).toEqual({ result: 'BLACK_WINS', reason: 'timeout' });
+        expect(row!.status).toBe('FINISHED');
+        expect(row!.whiteMs).toBe(0);
+      });
+
+      it('is a no-op while the running side still has time', async () => {
+        row = gameRow({
+          initialSeconds: 600,
+          whiteMs: 300_000,
+          blackMs: 600_000,
+          clockUpdatedAt: new Date(Date.now() - 4_000)
+        });
+        expect(await service.flagTimeout('g1')).toBeNull();
+        expect(row!.status).toBe('ACTIVE');
+      });
+
+      it('is a no-op for an untimed game', async () => {
+        row = gameRow();
+        expect(await service.flagTimeout('g1')).toBeNull();
+      });
     });
   });
 });

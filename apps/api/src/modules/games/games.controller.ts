@@ -16,7 +16,7 @@ export class GamesController {
   // POST /api/v1/games — open a new challenge (caller takes one seat)
   @Post()
   create(@Body() dto: CreateGameDto, @CurrentUser() user: AuthenticatedUser) {
-    return this.gamesService.create(user.userId, dto.color ?? 'random');
+    return this.gamesService.create(user.userId, dto.color ?? 'random', dto.initialSeconds ?? null);
   }
 
   // GET /api/v1/games — open challenges + the caller's own games

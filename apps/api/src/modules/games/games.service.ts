@@ -43,6 +43,37 @@ export function inspectPosition(chess: Chess): { turn: Color; over: GameOver | n
 /// A challenge nobody has joined in this long is swept to ABANDONED.
 export const PENDING_TTL_MS = 10 * 60 * 1000;
 
+/// Allowed per-side time controls, in seconds. `null` (omitted) = untimed.
+export const TIME_CONTROLS = [180, 300, 600, 900, 1200, 1800, 2700] as const;
+
+interface ClockState {
+  initialSeconds: number | null;
+  whiteMs: number | null;
+  blackMs: number | null;
+  clockUpdatedAt: Date | null;
+}
+
+/// Remaining ms for each side "as of now": the side to move keeps ticking
+/// down from clockUpdatedAt, the idle side is frozen at its stored value.
+export function clockSnapshot(
+  clock: ClockState,
+  turn: Color,
+  status: string,
+  now = Date.now()
+): { whiteMs: number | null; blackMs: number | null; running: Color | null } {
+  if (clock.initialSeconds == null || clock.whiteMs == null || clock.blackMs == null) {
+    return { whiteMs: null, blackMs: null, running: null };
+  }
+  const running = status === 'ACTIVE' ? turn : null;
+  const elapsed =
+    running && clock.clockUpdatedAt ? Math.max(0, now - clock.clockUpdatedAt.getTime()) : 0;
+  return {
+    whiteMs: Math.max(0, clock.whiteMs - (running === 'w' ? elapsed : 0)),
+    blackMs: Math.max(0, clock.blackMs - (running === 'b' ? elapsed : 0)),
+    running
+  };
+}
+
 @Injectable()
 export class GamesService {
   constructor(private readonly prisma: PrismaService) {}
@@ -75,8 +106,11 @@ export class GamesService {
 
   // ── Lobby ────────────────────────────────────────────────────────────────
 
-  async create(userId: string, colorPref: ColorPref = 'random') {
+  async create(userId: string, colorPref: ColorPref = 'random', initialSeconds?: number | null) {
     const startedAt = new Date();
+    if (initialSeconds != null && !(TIME_CONTROLS as readonly number[]).includes(initialSeconds)) {
+      throw new BadRequestException('Unsupported time control');
+    }
 
     // One open challenge per user. Retire the caller's *pre-existing* open
     // challenge (created before this call), then claim the slot on the new
@@ -98,6 +132,7 @@ export class GamesService {
           blackId: color === 'black' ? userId : null,
           status: 'PENDING',
           openChallengeOwnerId: userId,
+          initialSeconds: initialSeconds ?? null,
           fen: new Chess().fen(),
           pgn: ''
         },
@@ -173,9 +208,18 @@ export class GamesService {
     // Claim the seat atomically: the row must still be PENDING with that seat
     // empty. If a concurrent joiner won it, count is 0. Clearing
     // openChallengeOwnerId frees the creator's "one open challenge" slot.
+    // A timed game's clocks start now, with White to move.
+    const clockStart =
+      game.initialSeconds != null
+        ? {
+            whiteMs: game.initialSeconds * 1000,
+            blackMs: game.initialSeconds * 1000,
+            clockUpdatedAt: new Date()
+          }
+        : {};
     const claimed = await this.prisma.game.updateMany({
       where: { id, status: 'PENDING', [seat]: null },
-      data: { [seat]: userId, status: 'ACTIVE', openChallengeOwnerId: null }
+      data: { [seat]: userId, status: 'ACTIVE', openChallengeOwnerId: null, ...clockStart }
     });
     if (claimed.count === 0) {
       throw new ConflictException('Someone just joined this game');
@@ -200,6 +244,30 @@ export class GamesService {
     const chess = this.load(game.pgn);
     if (chess.turn() !== color) throw new BadRequestException("It's not your turn");
 
+    // Clock: has the mover already run out of time before playing?
+    const timed = game.initialSeconds != null && game.clockUpdatedAt != null;
+    const now = Date.now();
+    let moverRemaining = 0;
+    if (timed) {
+      const stored = color === 'w' ? game.whiteMs! : game.blackMs!;
+      moverRemaining = stored - (now - game.clockUpdatedAt!.getTime());
+      if (moverRemaining <= 0) {
+        const result: GameOver['result'] = color === 'w' ? 'BLACK_WINS' : 'WHITE_WINS';
+        await this.prisma.game.updateMany({
+          where: { id, status: 'ACTIVE', revision: game.revision },
+          data: {
+            status: 'FINISHED',
+            result,
+            resultReason: 'timeout',
+            endedAt: new Date(),
+            revision: { increment: 1 },
+            ...(color === 'w' ? { whiteMs: 0 } : { blackMs: 0 })
+          }
+        });
+        return { game: await this.get(id), move: null, over: { result, reason: 'timeout' } };
+      }
+    }
+
     let played;
     try {
       played = chess.move({ from: move.from, to: move.to, promotion: move.promotion ?? 'q' });
@@ -220,6 +288,12 @@ export class GamesService {
         fen: chess.fen(),
         pgn: chess.pgn(),
         revision: { increment: 1 },
+        ...(timed
+          ? {
+              ...(color === 'w' ? { whiteMs: moverRemaining } : { blackMs: moverRemaining }),
+              clockUpdatedAt: new Date(now)
+            }
+          : {}),
         ...(over
           ? { status: 'FINISHED', result: over.result, resultReason: over.reason, endedAt: new Date() }
           : {})
@@ -234,6 +308,40 @@ export class GamesService {
       move: { san: played.san, from: played.from, to: played.to, color },
       over
     };
+  }
+
+  /// Finish a timed game whose running side has run their clock to zero
+  /// without moving. Idempotent — a no-op if the position has moved on.
+  async flagTimeout(id: string) {
+    const game = await this.prisma.game.findUnique({ where: { id } });
+    if (
+      !game ||
+      game.status !== 'ACTIVE' ||
+      game.initialSeconds == null ||
+      game.clockUpdatedAt == null ||
+      game.whiteMs == null ||
+      game.blackMs == null
+    ) {
+      return null;
+    }
+    const turn = this.load(game.pgn).turn();
+    const stored = turn === 'w' ? game.whiteMs : game.blackMs;
+    if (stored - (Date.now() - game.clockUpdatedAt.getTime()) > 0) return null;
+
+    const result: GameOver['result'] = turn === 'w' ? 'BLACK_WINS' : 'WHITE_WINS';
+    const done = await this.prisma.game.updateMany({
+      where: { id, status: 'ACTIVE', revision: game.revision },
+      data: {
+        status: 'FINISHED',
+        result,
+        resultReason: 'timeout',
+        endedAt: new Date(),
+        revision: { increment: 1 },
+        ...(turn === 'w' ? { whiteMs: 0 } : { blackMs: 0 })
+      }
+    });
+    if (done.count === 0) return null;
+    return { game: await this.get(id), over: { result, reason: 'timeout' } };
   }
 
   async resign(id: string, userId: string) {

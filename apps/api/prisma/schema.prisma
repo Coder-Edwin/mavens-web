@@ -634,6 +634,14 @@ model Game {
   fen          String          @db.Text
   pgn          String          @db.Text // movetext; "" until the first move
   revision     Int             @default(0) // optimistic-lock counter, bumped on every move
+
+  // Clock (Phase: Play timer). Null initialSeconds => untimed. whiteMs/blackMs
+  // hold each side's remaining time as of clockUpdatedAt; the side to move is
+  // the one whose clock is running down from that instant. Set on ACTIVE.
+  initialSeconds Int?
+  whiteMs        Int?
+  blackMs        Int?
+  clockUpdatedAt DateTime?
   // Set to the creator while this game is a live PENDING challenge; cleared on
   // join / cancel / expiry. The unique index makes "one open challenge per
   // user" a database invariant (MySQL allows many NULLs).
