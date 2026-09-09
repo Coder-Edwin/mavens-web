@@ -67,6 +67,10 @@ const activeGame: Game = {
   resultReason: null,
   fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
   pgn: '',
+  initialSeconds: null,
+  whiteMs: null,
+  blackMs: null,
+  clockUpdatedAt: null,
   createdAt: '2026-09-06T00:00:00Z',
   endedAt: null
 };
@@ -106,6 +110,21 @@ describe('GamePage', () => {
     expect(screen.getByRole('button', { name: /resign/i })).toBeInTheDocument();
   });
 
+  it('renders both clocks for a timed game', async () => {
+    getImpl = async () => ({
+      ...activeGame,
+      initialSeconds: 600,
+      whiteMs: 600_000,
+      blackMs: 540_000,
+      clockUpdatedAt: new Date().toISOString()
+    });
+    renderGame();
+    await screen.findByText('w@x.com');
+    // white ~10:00, black frozen at 9:00
+    expect(screen.getByText('9:00')).toBeInTheDocument();
+    expect(screen.getByText(/^(10:00|9:5\d)$/)).toBeInTheDocument();
+  });
+
   it('sends a legal move over the socket when it is your turn', async () => {
     const user = userEvent.setup();
     renderGame();
@@ -124,7 +143,8 @@ describe('GamePage', () => {
       move: { san: 'e4', from: 'e2', to: 'e4', color: 'w' },
       fen: 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1',
       pgn: '1. e4',
-      status: 'ACTIVE'
+      status: 'ACTIVE',
+      clock: null
     });
 
     expect(await screen.findByText('e4')).toBeInTheDocument();

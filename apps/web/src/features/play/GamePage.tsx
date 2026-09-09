@@ -18,7 +18,9 @@ import {
 import { isSoundOn, playMoveSound, setSoundOn, soundForSan } from '@/lib/chess-sound';
 import {
   connectGameSocket,
+  formatClock,
   gamesApi,
+  liveClock,
   resultText,
   type Game,
   type GameSocket,
@@ -26,12 +28,44 @@ import {
 } from '@/lib/games';
 import '@/styles/play.css';
 
-function Seat({ email, color, isTurn }: { email: string | null; color: 'w' | 'b'; isTurn: boolean }) {
+function Seat({
+  email,
+  color,
+  isTurn,
+  clockMs,
+  clockRunning,
+  clockLow
+}: {
+  email: string | null;
+  color: 'w' | 'b';
+  isTurn: boolean;
+  clockMs?: number | null;
+  clockRunning?: boolean;
+  clockLow?: boolean;
+}) {
   return (
-    <div className={`pl-seat${isTurn ? ' turn' : ''}`}>
-      <span className={`dot ${color}`} />
-      <span>{email ?? (color === 'w' ? 'White seat open' : 'Black seat open')}</span>
-      {isTurn && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5 }}>· to move</span>}
+    <div className={`pl-seat${isTurn ? ' turn' : ''}`} style={{ justifyContent: 'space-between' }}>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+        <span className={`dot ${color}`} />
+        <span>{email ?? (color === 'w' ? 'White seat open' : 'Black seat open')}</span>
+        {isTurn && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5 }}>· to move</span>}
+      </span>
+      {clockMs != null && (
+        <span
+          className="mono"
+          style={{
+            fontSize: 18,
+            fontWeight: 700,
+            padding: '2px 10px',
+            borderRadius: 6,
+            fontVariantNumeric: 'tabular-nums',
+            background: clockRunning ? 'var(--gold-soft)' : 'var(--panel-alt)',
+            color: clockLow ? 'var(--red)' : clockRunning ? '#1c1c1c' : 'var(--text)'
+          }}
+        >
+          {formatClock(clockMs)}
+        </span>
+      )}
     </div>
   );
 }
@@ -103,7 +137,21 @@ export function GamePage() {
           chess.current = c;
           setFen(p.fen);
           setMoves(c.history());
-          setGame((prev) => (prev ? { ...prev, status: p.status } : prev));
+          setGame((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  status: p.status,
+                  ...(p.clock
+                    ? {
+                        whiteMs: p.clock.whiteMs,
+                        blackMs: p.clock.blackMs,
+                        clockUpdatedAt: p.clock.updatedAt
+                      }
+                    : {})
+                }
+              : prev
+          );
         },
         onOver: (p) => setOver(p),
         onError: (p) => {
@@ -125,6 +173,14 @@ export function GamePage() {
     }
     prevMoveCount.current = moves.length;
   }, [moves]);
+
+  // Re-render ~4x/s to animate a running clock down.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (game?.status !== 'ACTIVE' || game.initialSeconds == null) return;
+    const t = window.setInterval(() => setTick((n) => n + 1), 250);
+    return () => window.clearInterval(t);
+  }, [game?.status, game?.initialSeconds]);
 
   async function joinGame() {
     if (!game) return;
@@ -254,6 +310,10 @@ export function GamePage() {
   const bottomEmail = topColor === 'w' ? game.black?.email ?? null : game.white?.email ?? null;
   const bottomColor: 'w' | 'b' = topColor === 'w' ? 'b' : 'w';
 
+  const clk = liveClock(game);
+  const msFor = (c: 'w' | 'b') => (c === 'w' ? clk.whiteMs : clk.blackMs);
+  const isLow = (ms: number | null) => ms != null && ms <= 20_000;
+
   const bannerClass = over
     ? over.result === 'DRAW'
       ? ''
@@ -291,7 +351,14 @@ export function GamePage() {
 
       <div className="pl-game">
         <div>
-          <Seat email={topEmail} color={topColor} isTurn={game.status === 'ACTIVE' && !over && turn === topColor} />
+          <Seat
+            email={topEmail}
+            color={topColor}
+            isTurn={game.status === 'ACTIVE' && !over && turn === topColor}
+            clockMs={msFor(topColor)}
+            clockRunning={clk.running === topColor && !over}
+            clockLow={isLow(msFor(topColor))}
+          />
           <div className="pl-board-wrap" ref={wrapRef} style={{ position: 'relative' }}>
             <Chessboard
               position={fen}
@@ -323,6 +390,9 @@ export function GamePage() {
             email={bottomEmail}
             color={bottomColor}
             isTurn={game.status === 'ACTIVE' && !over && turn === bottomColor}
+            clockMs={msFor(bottomColor)}
+            clockRunning={clk.running === bottomColor && !over}
+            clockLow={isLow(msFor(bottomColor))}
           />
         </div>
 

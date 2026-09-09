@@ -12,7 +12,7 @@ vi.mock('@/lib/auth-context', () => ({
 // Plain stubs (not vi.fn) so a rejecting call isn't flagged as an unhandled rejection.
 const calls: { fn: string; arg?: unknown }[] = [];
 let listImpl: () => Promise<{ open: Game[]; mine: Game[] }>;
-let createImpl: (color: string) => Promise<Game>;
+let createImpl: (color: string, initialSeconds?: number | null) => Promise<Game>;
 let joinImpl: (id: string) => Promise<Game>;
 
 vi.mock('@/lib/games', async (importOriginal) => {
@@ -24,9 +24,9 @@ vi.mock('@/lib/games', async (importOriginal) => {
         calls.push({ fn: 'list' });
         return listImpl();
       },
-      create: (color: string) => {
-        calls.push({ fn: 'create', arg: color });
-        return createImpl(color);
+      create: (color: string, initialSeconds?: number | null) => {
+        calls.push({ fn: 'create', arg: { color, initialSeconds } });
+        return createImpl(color, initialSeconds);
       },
       join: (id: string) => {
         calls.push({ fn: 'join', arg: id });
@@ -52,6 +52,10 @@ const game = (over: Partial<Game>): Game => ({
   resultReason: null,
   fen: 'start',
   pgn: '',
+  initialSeconds: null,
+  whiteMs: null,
+  blackMs: null,
+  clockUpdatedAt: null,
   createdAt: '2026-09-06T00:00:00Z',
   endedAt: null,
   ...over
@@ -111,10 +115,22 @@ describe('PlayLobby', () => {
     await screen.findByText(/no games in progress/i);
 
     await user.selectOptions(screen.getByLabelText(/play as/i), 'white');
+    await user.selectOptions(screen.getByLabelText(/^time$/i), '1800');
     await user.click(screen.getByRole('button', { name: /create game/i }));
 
-    expect(calls).toContainEqual({ fn: 'create', arg: 'white' });
+    expect(calls).toContainEqual({ fn: 'create', arg: { color: 'white', initialSeconds: 1800 } });
     expect(await screen.findByText('GAME PAGE')).toBeInTheDocument();
+  });
+
+  it('can create an untimed game', async () => {
+    const user = userEvent.setup();
+    renderLobby();
+    await screen.findByText(/no games in progress/i);
+
+    await user.selectOptions(screen.getByLabelText(/^time$/i), 'none');
+    await user.click(screen.getByRole('button', { name: /create game/i }));
+
+    expect(calls).toContainEqual({ fn: 'create', arg: { color: 'random', initialSeconds: null } });
   });
 
   it('re-fetches the lists when Refresh is clicked', async () => {

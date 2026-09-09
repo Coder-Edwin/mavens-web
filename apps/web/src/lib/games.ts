@@ -10,6 +10,13 @@ export interface Player {
   email: string;
 }
 
+export interface ClockPayload {
+  initialSeconds: number;
+  whiteMs: number | null;
+  blackMs: number | null;
+  updatedAt: string | null;
+}
+
 export interface Game {
   id: string;
   whiteId: string | null;
@@ -21,6 +28,10 @@ export interface Game {
   resultReason: string | null;
   fen: string;
   pgn: string;
+  initialSeconds: number | null;
+  whiteMs: number | null;
+  blackMs: number | null;
+  clockUpdatedAt: string | null;
   createdAt: string;
   endedAt: string | null;
 }
@@ -30,6 +41,51 @@ export interface MovePayload {
   fen: string;
   pgn: string;
   status: GameStatus;
+  clock: ClockPayload | null;
+}
+
+// Supported per-side time controls, seconds. Mirrors TIME_CONTROLS on the API.
+export const TIME_CONTROLS: { seconds: number; label: string }[] = [
+  { seconds: 180, label: '3 min' },
+  { seconds: 300, label: '5 min' },
+  { seconds: 600, label: '10 min' },
+  { seconds: 900, label: '15 min' },
+  { seconds: 1200, label: '20 min' },
+  { seconds: 1800, label: '30 min' },
+  { seconds: 2700, label: '45 min' }
+];
+
+/** Live remaining ms per side, given the game state and "now". */
+export function liveClock(
+  game: Pick<Game, 'status' | 'fen' | 'whiteMs' | 'blackMs' | 'clockUpdatedAt' | 'initialSeconds'>,
+  now = Date.now()
+): { whiteMs: number | null; blackMs: number | null; running: 'w' | 'b' | null } {
+  if (game.initialSeconds == null || game.whiteMs == null || game.blackMs == null) {
+    return { whiteMs: null, blackMs: null, running: null };
+  }
+  const turn = game.fen.split(' ')[1] === 'b' ? 'b' : 'w';
+  const running = game.status === 'ACTIVE' ? turn : null;
+  const elapsed =
+    running && game.clockUpdatedAt
+      ? Math.max(0, now - new Date(game.clockUpdatedAt).getTime())
+      : 0;
+  return {
+    whiteMs: Math.max(0, game.whiteMs - (running === 'w' ? elapsed : 0)),
+    blackMs: Math.max(0, game.blackMs - (running === 'b' ? elapsed : 0)),
+    running
+  };
+}
+
+export function formatClock(ms: number | null): string {
+  if (ms == null) return '--:--';
+  const total = Math.max(0, Math.ceil(ms / 1000));
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  if (m >= 60) {
+    const h = Math.floor(m / 60);
+    return `${h}:${String(m % 60).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  }
+  return `${m}:${String(s).padStart(2, '0')}`;
 }
 
 export interface OverPayload {
@@ -38,7 +94,8 @@ export interface OverPayload {
 }
 
 export const gamesApi = {
-  create: (color: ColorPref) => api.post<Game>('/games', { color }),
+  create: (color: ColorPref, initialSeconds?: number | null) =>
+    api.post<Game>('/games', { color, ...(initialSeconds ? { initialSeconds } : {}) }),
   list: () => api.get<{ open: Game[]; mine: Game[] }>('/games'),
   get: (id: string) => api.get<Game>(`/games/${id}`),
   join: (id: string) => api.post<Game>(`/games/${id}/join`),

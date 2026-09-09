@@ -3,7 +3,13 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Panel, Button } from '@/components/ui/Primitives';
 import { ApiError } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth-context';
-import { gamesApi, type ColorPref, type Game } from '@/lib/games';
+import { gamesApi, TIME_CONTROLS, type ColorPref, type Game } from '@/lib/games';
+
+function timeControlLabel(g: Game): string {
+  if (g.initialSeconds == null) return 'untimed';
+  const m = TIME_CONTROLS.find((t) => t.seconds === g.initialSeconds);
+  return m ? m.label : `${Math.round(g.initialSeconds / 60)} min`;
+}
 
 function opponentOf(game: Game, myId: string | undefined): string {
   const other = game.whiteId === myId ? game.black : game.white;
@@ -16,6 +22,7 @@ export function PlayLobby() {
   const [data, setData] = useState<{ open: Game[]; mine: Game[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [color, setColor] = useState<ColorPref>('random');
+  const [timeControl, setTimeControl] = useState<number | 'none'>(1200); // 20 min default
   const [busy, setBusy] = useState(false);
 
   async function refresh() {
@@ -45,7 +52,7 @@ export function PlayLobby() {
     setBusy(true);
     setError(null);
     try {
-      const game = await gamesApi.create(color);
+      const game = await gamesApi.create(color, timeControl === 'none' ? null : timeControl);
       navigate(`/app/play/${game.id}`);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not create a game.');
@@ -111,6 +118,26 @@ export function PlayLobby() {
               <option value="white">White</option>
               <option value="black">Black</option>
             </select>
+            <label
+              htmlFor="pl-time"
+              style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--muted)' }}
+            >
+              Time
+            </label>
+            <select
+              id="pl-time"
+              value={String(timeControl)}
+              onChange={(e) =>
+                setTimeControl(e.target.value === 'none' ? 'none' : Number(e.target.value))
+              }
+            >
+              <option value="none">Untimed</option>
+              {TIME_CONTROLS.map((t) => (
+                <option key={t.seconds} value={t.seconds}>
+                  {t.label} each
+                </option>
+              ))}
+            </select>
             <Button onClick={newGame} disabled={busy}>
               Create game
             </Button>
@@ -134,7 +161,7 @@ export function PlayLobby() {
                     {pending ? 'Open challenge' : `vs ${opponentOf(g, user?.id)}`}
                   </Link>
                   <div className="meta">
-                    {pending ? 'waiting to be joined' : g.status.toLowerCase()}
+                    {pending ? 'waiting to be joined' : g.status.toLowerCase()} · {timeControlLabel(g)}
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
@@ -166,7 +193,9 @@ export function PlayLobby() {
             <div className="pl-row" key={g.id}>
               <div>
                 <span>{(g.white ?? g.black)?.email ?? 'A member'}</span>
-                <div className="meta">wants {g.whiteId ? 'black' : 'white'}</div>
+                <div className="meta">
+                  wants {g.whiteId ? 'black' : 'white'} · {timeControlLabel(g)}
+                </div>
               </div>
               <button className="btn btn-gold btn-sm" onClick={() => join(g.id)} disabled={busy}>
                 Join
