@@ -7,6 +7,7 @@ import { CopyLinkButton } from '@/features/play/CopyLinkButton';
 import { ApiError } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth-context';
 import { PromotionPicker, type PromotionChoice } from '@/features/play/PromotionPicker';
+import { GameOverModal } from '@/features/play/GameOverModal';
 import {
   checkStyles,
   isLegalTarget,
@@ -15,7 +16,13 @@ import {
   mergeStyles,
   moveHintStyles
 } from '@/lib/chess-hints';
-import { isSoundOn, playMoveSound, setSoundOn, soundForSan } from '@/lib/chess-sound';
+import {
+  isSoundOn,
+  playGameOverSound,
+  playMoveSound,
+  setSoundOn,
+  soundForSan
+} from '@/lib/chess-sound';
 import {
   connectGameSocket,
   formatClock,
@@ -90,6 +97,7 @@ export function GamePage() {
   const [selected, setSelected] = useState<string | null>(null);
   const [soundOn, setSoundOnState] = useState(isSoundOn());
   const [promo, setPromo] = useState<{ from: string; to: string; color: 'w' | 'b' } | null>(null);
+  const [showResult, setShowResult] = useState(true);
   const prevMoveCount = useRef(0);
   const primed = useRef(false);
 
@@ -153,7 +161,11 @@ export function GamePage() {
               : prev
           );
         },
-        onOver: (p) => setOver(p),
+        onOver: (p) => {
+          setOver(p);
+          setShowResult(true);
+          playGameOverSound();
+        },
         onError: (p) => {
           setError(p.message);
           gamesApi.get(id).then(applyGame).catch(() => undefined);
@@ -497,6 +509,16 @@ export function GamePage() {
           )}
         </div>
       </div>
+
+      {over && showResult && (
+        <GameOverModal
+          result={over.result}
+          reason={over.reason}
+          myColor={myColor}
+          pgn={game.pgn}
+          onClose={() => setShowResult(false)}
+        />
+      )}
     </>
   );
 }

@@ -134,6 +134,15 @@ describe('AnalysisBoard', () => {
     expect(btn).toHaveTextContent('Muted');
   });
 
+  it('flags checkmate at the end of a loaded game', async () => {
+    const user = userEvent.setup();
+    renderBoard();
+    await user.type(screen.getByPlaceholderText(/Paste a FEN or PGN/), '1. f3 e5 2. g4 Qh4#');
+    await user.click(screen.getByRole('button', { name: 'Load' }));
+
+    expect(await screen.findByText(/Checkmate — Black wins/)).toBeInTheDocument();
+  });
+
   it('asks which piece to promote to when a pawn reaches the last rank', async () => {
     const user = userEvent.setup();
     renderBoard();

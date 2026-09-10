@@ -71,6 +71,18 @@ function blip(
   osc.stop(at + len + 0.02);
 }
 
+/** A short three-note flourish for the end of a game. */
+export function playGameOverSound(): void {
+  if (!isSoundOn()) return;
+  const ac = audioContext();
+  if (!ac) return;
+  if (ac.state === 'suspended') void ac.resume().catch(() => undefined);
+  const now = ac.currentTime;
+  blip(ac, now, 330, 320, 0.15, 0.14);
+  blip(ac, now + 0.13, 262, 258, 0.15, 0.16);
+  blip(ac, now + 0.29, 196, 190, 0.16, 0.3);
+}
+
 export function playMoveSound(kind: MoveSound = 'move'): void {
   if (!isSoundOn()) return;
   const ac = audioContext();

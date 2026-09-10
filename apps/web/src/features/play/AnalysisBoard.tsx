@@ -7,13 +7,14 @@ import {
   useState,
   type ReactNode
 } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Chessboard } from 'react-chessboard';
 import { Chess } from 'chess.js';
 import { Panel } from '@/components/ui/Primitives';
 import { PromotionPicker, type PromotionChoice } from '@/features/play/PromotionPicker';
 import {
   checkStyles,
+  outcomeOf,
   isLegalTarget,
   isPromotionMove,
   lastMoveStyles,
@@ -47,6 +48,7 @@ function replay(startFen: string, sans: string[]): Ply[] {
 }
 
 export function AnalysisBoard() {
+  const location = useLocation();
   const [startFen, setStartFen] = useState(START_FEN);
   const [plies, setPlies] = useState<Ply[]>([]);
   const [cursor, setCursor] = useState(0); // 0 = start position, k = after plies[k-1]
@@ -103,6 +105,13 @@ export function AnalysisBoard() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [cursor, go, plies.length]);
+
+  // Opened from a finished game ("Analyse") — load its movetext once.
+  useEffect(() => {
+    const incoming = (location.state as { pgn?: string } | null)?.pgn;
+    if (incoming) loadPgn(incoming);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function applyMove(from: string, to: string, promotion?: PromotionChoice): boolean {
     const c = new Chess(positionFen);
@@ -167,31 +176,34 @@ export function AnalysisBoard() {
     if (next) playMoveSound('move');
   }
 
+  const loadPgn = useCallback((text: string): boolean => {
+    try {
+      const c = new Chess();
+      c.loadPgn(text);
+      const header = c.header();
+      const fromFen = header.FEN && header.SetUp === '1' ? header.FEN : START_FEN;
+      const rebuilt = replay(fromFen, c.history());
+      setStartFen(fromFen);
+      setPlies(rebuilt);
+      setCursor(rebuilt.length);
+      setSelected(null);
+      setNote(`Loaded ${rebuilt.length} half-moves from PGN.`);
+      setLoadText('');
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
   function loadInput() {
     const text = loadText.trim();
     if (!text) return;
     setError(null);
     setNote(null);
     // Try PGN first (has move numbers or a result), else treat as FEN.
-    const looksPgn = /\d\.\s|\[|1-0|0-1|1\/2-1\/2|\*/.test(text);
-    if (looksPgn) {
-      try {
-        const c = new Chess();
-        c.loadPgn(text);
-        const header = c.header();
-        const fromFen = header.FEN && header.SetUp === '1' ? header.FEN : START_FEN;
-        const sans = c.history();
-        const rebuilt = replay(fromFen, sans);
-        setStartFen(fromFen);
-        setPlies(rebuilt);
-        setCursor(rebuilt.length);
-        setNote(`Loaded ${rebuilt.length} half-moves from PGN.`);
-        setLoadText('');
-        return;
-      } catch {
-        setError('Could not parse that as PGN.');
-        return;
-      }
+    if (/\d\.\s|\[|1-0|0-1|1\/2-1\/2|\*/.test(text)) {
+      if (!loadPgn(text)) setError('Could not parse that as PGN.');
+      return;
     }
     try {
       // eslint-disable-next-line no-new
@@ -199,6 +211,7 @@ export function AnalysisBoard() {
       setStartFen(text);
       setPlies([]);
       setCursor(0);
+      setSelected(null);
       setNote('Loaded position from FEN.');
       setLoadText('');
     } catch {
@@ -302,6 +315,30 @@ export function AnalysisBoard() {
               onCancel={() => setPromo(null)}
             />
           )}
+          {cursor === plies.length &&
+            (() => {
+              const o = outcomeOf(positionFen);
+              if (!o) return null;
+              const label =
+                o.kind === 'checkmate'
+                  ? `Checkmate — ${o.winner} wins`
+                  : o.kind === 'stalemate'
+                    ? 'Stalemate — draw'
+                    : 'Draw';
+              return (
+                <div
+                  className="alert-card"
+                  style={{
+                    marginTop: 10,
+                    textAlign: 'center',
+                    fontWeight: 700,
+                    borderColor: o.kind === 'checkmate' ? 'var(--red)' : 'var(--line)'
+                  }}
+                >
+                  {label}
+                </div>
+              );
+            })()}
           <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
             <NavBtn onClick={() => go(0)} disabled={cursor === 0}>⏮</NavBtn>
             <NavBtn onClick={() => go(cursor - 1)} disabled={cursor === 0}>◀</NavBtn>

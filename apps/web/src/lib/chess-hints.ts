@@ -117,6 +117,26 @@ export function isLegalTarget(fen: string, from: string, to: string): boolean {
   }
 }
 
+/** Terminal state of a position, if any. */
+export function outcomeOf(
+  fen: string
+): { kind: 'checkmate' | 'stalemate' | 'draw'; winner: 'White' | 'Black' | null } | null {
+  try {
+    const c = new Chess(fen);
+    if (c.isCheckmate()) {
+      // side to move is mated -> the other side won
+      return { kind: 'checkmate', winner: c.turn() === 'w' ? 'Black' : 'White' };
+    }
+    if (c.isStalemate()) return { kind: 'stalemate', winner: null };
+    if (c.isInsufficientMaterial() || c.isThreefoldRepetition() || c.isDraw()) {
+      return { kind: 'draw', winner: null };
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
 /** Would moving from→to promote a pawn? (pawn on `from`, last rank on `to`) */
 export function isPromotionMove(fen: string, from: string, to: string): boolean {
   try {

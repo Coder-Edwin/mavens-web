@@ -6,6 +6,7 @@ import {
   lastMoveStyles,
   mergeStyles,
   moveHintStyles,
+  outcomeOf,
   ownerOf,
   sideToMove
 } from './chess-hints';
@@ -64,6 +65,20 @@ describe('checkStyles', () => {
 
   it('is empty when no one is in check', () => {
     expect(checkStyles('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')).toEqual({});
+  });
+});
+
+describe('outcomeOf', () => {
+  it('names the winner on checkmate (fool’s mate position)', () => {
+    // after 1. f3 e5 2. g4 Qh4# — white is mated
+    const fen = 'rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3';
+    expect(outcomeOf(fen)).toEqual({ kind: 'checkmate', winner: 'Black' });
+  });
+  it('reports a stalemate', () => {
+    expect(outcomeOf('7k/5Q2/6K1/8/8/8/8/8 b - - 0 1')).toEqual({ kind: 'stalemate', winner: null });
+  });
+  it('is null for an ongoing position', () => {
+    expect(outcomeOf('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')).toBeNull();
   });
 });
 

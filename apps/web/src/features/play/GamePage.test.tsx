@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { GamePage } from './GamePage';
@@ -157,6 +157,22 @@ describe('GamePage', () => {
     capturedHandlers.onOver?.({ result: 'WHITE_WINS', reason: 'checkmate' });
 
     expect(await screen.findByText(/white wins — checkmate/i)).toBeInTheDocument();
+  });
+
+  it('pops a checkmate dialog that the player can dismiss', async () => {
+    const user = userEvent.setup();
+    renderGame(); // I am white (auth mock)
+    await screen.findByText('w@x.com');
+
+    capturedHandlers.onOver?.({ result: 'BLACK_WINS', reason: 'checkmate' });
+
+    const dialog = await screen.findByRole('dialog', { name: /checkmate/i });
+    expect(within(dialog).getByText('Checkmate!')).toBeInTheDocument();
+    expect(within(dialog).getByText('You lost')).toBeInTheDocument();
+    expect(within(dialog).getByRole('link', { name: /analyse/i })).toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole('button', { name: /close/i }));
+    expect(screen.queryByRole('dialog', { name: /checkmate/i })).not.toBeInTheDocument();
   });
 
   it('shows a waiting notice for a game with no opponent yet', async () => {
