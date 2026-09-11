@@ -23,6 +23,7 @@ import { InvoicesModule } from './modules/invoices/invoices.module';
 import { PayoutsModule } from './modules/payouts/payouts.module';
 import { CoursesModule } from './modules/courses/courses.module';
 import { ReportsModule } from './modules/reports/reports.module';
+import { LichessModule } from './modules/lichess/lichess.module';
 
 @Module({
   imports: [
@@ -49,7 +50,8 @@ import { ReportsModule } from './modules/reports/reports.module';
     InvoicesModule,
     PayoutsModule,
     CoursesModule,
-    ReportsModule
+    ReportsModule,
+    LichessModule
   ]
 })
 export class AppModule {}
