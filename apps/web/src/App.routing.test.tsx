@@ -150,6 +150,14 @@ vi.mock('@/lib/courses', async (importOriginal) => {
   };
 });
 
+vi.mock('@/lib/lichess', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/lichess')>();
+  return {
+    ...actual,
+    lichessApi: { ...actual.lichessApi, tv: vi.fn().mockResolvedValue({}) }
+  };
+});
+
 vi.mock('@/lib/tournaments', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/tournaments')>();
   return {
@@ -397,5 +405,11 @@ describe('AppRoutes', () => {
     seedSession('STUDENT');
     renderAt('/app/analysis');
     expect(await screen.findByText('Analysis board')).toBeInTheDocument();
+  });
+
+  it('gives every signed-in role the lichess feed at /app/lichess', async () => {
+    seedSession('STUDENT');
+    renderAt('/app/lichess');
+    expect(await screen.findByText('Live from lichess')).toBeInTheDocument();
   });
 });

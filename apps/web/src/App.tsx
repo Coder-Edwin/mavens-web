@@ -34,6 +34,7 @@ import { ParentDashboard } from '@/features/parent/ParentDashboard';
 import { PlayLobby } from '@/features/play/PlayLobby';
 import { GamePage } from '@/features/play/GamePage';
 import { AnalysisBoard } from '@/features/play/AnalysisBoard';
+import { LichessFeedPage } from '@/features/play/LichessFeedPage';
 
 const DASHBOARDS: Record<string, ReactElement> = {
   admin: <AdminOverview />,
@@ -65,6 +66,7 @@ function AuthenticatedApp() {
         <Route path="play" element={<PlayLobby />} />
         <Route path="play/:id" element={<GamePage />} />
         <Route path="analysis" element={<AnalysisBoard />} />
+        <Route path="lichess" element={<LichessFeedPage />} />
         <Route path="learn" element={<MyCoursesPage />} />
         <Route path="learn/:courseId" element={<CoursePlayerPage />} />
         {effectiveRole === 'admin' && (
