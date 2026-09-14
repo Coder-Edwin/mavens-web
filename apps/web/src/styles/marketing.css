@@ -119,25 +119,13 @@
   flex-wrap: wrap;
 }
 .mk-hero-art {
+  width: 100%;
   aspect-ratio: 1;
   border-radius: 16px;
   border: 1px solid var(--line);
-  background:
-    repeating-conic-gradient(#2e3740 0% 25%, #191e24 0% 50%) 0 / 12.5% 12.5%;
   box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.6);
-  position: relative;
-}
-.mk-hero-art::after {
-  /* PLACEHOLDER: swap for a real photo in apps/web/public/ (see mavens.co.ke hero images) */
-  content: 'photo placeholder';
-  position: absolute;
-  inset: auto 0 12px 0;
-  text-align: center;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--muted);
+  object-fit: cover;
+  display: block;
 }
 
 /* ---------- Stats strip ---------- */

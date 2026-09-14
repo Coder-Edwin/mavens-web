@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { BrandMark } from '@/components/BrandMark';
 
 /**
  * Shared public-site header. On the landing page (`variant="home"`) the
@@ -23,7 +24,7 @@ export function MarketingHeader({ variant = 'sub' }: { variant?: 'home' | 'sub' 
     <header className={`mk-nav${menuOpen ? ' open' : ''}`}>
       <div className="mk-container mk-nav-inner">
         <Link to="/" className="brand" aria-label="Mavens Chess Club home">
-          <span className="brand-mark">♞</span>
+          <BrandMark />
           <span>
             <span className="brand-name" style={{ display: 'block' }}>
               Mavens Chess Club

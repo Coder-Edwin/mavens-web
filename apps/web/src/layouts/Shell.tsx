@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import type { AuthUser } from '@/lib/auth-context';
+import { BrandMark } from '@/components/BrandMark';
 
 type EffectiveRole = 'admin' | 'coach' | 'student' | 'parent';
 
@@ -92,7 +93,7 @@ export function Shell({ user, viewAsCoach, onToggleCoachView, onLogout, children
     <>
       <div className="topbar">
         <div className="brand">
-          <div className="brand-mark">♞</div>
+          <BrandMark />
           <div>
             <div className="brand-name">Mavens Chess Club</div>
             <div className="brand-sub">Academy Management</div>

@@ -73,9 +73,18 @@ describe('LandingPage', () => {
     expect(screen.getByText(/A108 Westlands Road, Nairobi/)).toBeInTheDocument();
   });
 
-  it('marks placeholder content so it is not mistaken for real data', () => {
+  it('marks remaining placeholder content so it is not mistaken for real data', () => {
     renderLanding();
     expect(screen.getAllByText(/placeholder/i).length).toBeGreaterThan(0);
+  });
+
+  it('uses the real club logo and hero photo instead of the old placeholders', () => {
+    renderLanding();
+    // Header and footer each render the brand mark — both should point at the real logo.
+    const logos = screen.getAllByAltText(/mavens chess club/i);
+    expect(logos.length).toBeGreaterThan(0);
+    logos.forEach((img) => expect(img).toHaveAttribute('src', '/branding/logo.png'));
+    expect(screen.getByAltText(/concentrating over the board/i)).toHaveAttribute('src', '/branding/hero.jpg');
   });
 
   it('requests the three latest published articles for the strip', () => {

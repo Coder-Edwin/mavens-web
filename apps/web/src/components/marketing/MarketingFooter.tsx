@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { BrandMark } from '@/components/BrandMark';
 import { CLUB_WHATSAPP_NUMBER, waLink } from '@/lib/whatsapp';
 
 /** Shared public-site footer. Section links point at the landing page's anchors. */
@@ -10,7 +11,7 @@ export function MarketingFooter() {
         <div className="mk-footer-grid">
           <div className="mk-footer-brand">
             <div className="brand">
-              <span className="brand-mark">♞</span>
+              <BrandMark />
               <span className="brand-name">Mavens Chess Club</span>
             </div>
             <p>Chess &amp; scholastic coaching for players of every age and background across Kenya.</p>

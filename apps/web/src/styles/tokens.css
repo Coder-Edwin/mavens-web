@@ -54,15 +54,24 @@ button {
   gap: 12px;
 }
 .brand-mark {
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   border-radius: 8px;
-  background: var(--gold);
+  /* The real logo (public/branding/logo.png) has dark line-work on a
+     transparent ground — a light backing plate keeps it legible against the
+     dark navbar/sidebar, unlike the gold square the ♞ glyph placeholder used. */
+  background: #fdfaf3;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
-  color: var(--ink);
+  padding: 4px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+.brand-mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 .brand-name {
   font-family: var(--font-display);

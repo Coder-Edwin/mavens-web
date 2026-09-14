@@ -10,9 +10,13 @@ import '@/styles/marketing.css';
  * chess-club site: hero → about → programs → founder → coaches →
  * donors/partners → latest articles → call-to-action → footer.
  *
- * Copy is drawn from Mavens' real details (mavens.co.ke). Imagery is
- * placeholder only — drop real assets into apps/web/public/ and swap the
- * `.mk-hero-art` / `.mk-portrait` / logo tiles when available.
+ * Copy is drawn from Mavens' real details (mavens.co.ke). The brand mark and
+ * hero photo are the club's own real assets (see memory `old-website-assets`
+ * / `apps/web/public/branding/`). The founder portrait, coach roster and
+ * donor/partner logos stay placeholder — the archived site is a client-
+ * rendered SPA with no name-to-photo mapping recoverable from its static
+ * HTML, so a specific photo can't be safely attributed to a named person
+ * without confirming with Amwai first.
  */
 
 // PLACEHOLDER coaches — replace with real roster once the Coaches API is public.
@@ -105,7 +109,11 @@ export function LandingPage() {
               </Link>
             </div>
           </div>
-          <div className="mk-hero-art" role="img" aria-label="Chessboard illustration (placeholder)" />
+          <img
+            className="mk-hero-art"
+            src="/branding/hero.jpg"
+            alt="A Mavens player concentrating over the board at a tournament"
+          />
         </section>
 
         {/* ---------- Stats ---------- */}

@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth-context';
 import { ApiError } from '@/lib/api-client';
+import { BrandMark } from '@/components/BrandMark';
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
@@ -55,7 +56,7 @@ export function LoginScreen() {
     >
       <form onSubmit={handleSubmit} className="panel" style={{ width: 340, padding: 30 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-          <div className="brand-mark">♞</div>
+          <BrandMark />
           <div>
             <div className="brand-name">Mavens Chess Club</div>
             <div className="brand-sub">Sign in</div>
