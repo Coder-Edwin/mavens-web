@@ -141,4 +141,53 @@ describe('InvoicesService', () => {
       await expect(service.remove('inv-1')).rejects.toThrow(BadRequestException);
     });
   });
+
+  describe('exportQuickBooksCsv', () => {
+    it('excludes draft and void invoices, emitting one row per line', async () => {
+      await service.exportQuickBooksCsv({});
+      expect(prisma.invoice.findMany.mock.calls[0][0].where.status.in).toEqual(['SENT', 'PARTIAL', 'PAID']);
+    });
+
+    it('emits one CSV row per invoice line, and a fallback line when none exist', async () => {
+      prisma.invoice.findMany.mockResolvedValue([
+        {
+          number: 'INV-0001',
+          status: 'SENT',
+          currency: 'KES',
+          total: 4500,
+          issuedAt: new Date('2026-09-01'),
+          createdAt: new Date('2026-09-01'),
+          dueAt: new Date('2026-09-15'),
+          billTo: { email: 'parent@example.com' },
+          enrollment: { student: { firstName: 'Faith', lastName: 'Otieno' } },
+          schoolGroup: null,
+          lines: [
+            { description: 'September coaching', quantity: 1, unitAmount: 4500, amount: 4500 }
+          ]
+        },
+        {
+          number: 'INV-0002',
+          status: 'PAID',
+          currency: 'KES',
+          total: 3000,
+          issuedAt: null,
+          createdAt: new Date('2026-08-01'),
+          dueAt: null,
+          billTo: null,
+          enrollment: null,
+          schoolGroup: { institutionName: 'Green Hills School' },
+          lines: []
+        }
+      ]);
+      const csv = await service.exportQuickBooksCsv({});
+      const lines = csv.trim().split('\n');
+      expect(lines).toHaveLength(3); // header + 2 invoice rows
+      expect(lines[1]).toContain('INV-0001');
+      expect(lines[1]).toContain('Faith Otieno');
+      expect(lines[1]).toContain('parent@example.com');
+      expect(lines[2]).toContain('INV-0002');
+      expect(lines[2]).toContain('Green Hills School');
+      expect(lines[2]).toContain('Chess coaching'); // fallback line description
+    });
+  });
 });

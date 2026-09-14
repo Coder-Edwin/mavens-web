@@ -178,6 +178,9 @@ export function InvoicesAdmin() {
           <button className="btn btn-ghost btn-sm" onClick={() => invoicesApi.exportCsv()}>
             Export CSV
           </button>
+          <button className="btn btn-ghost btn-sm" onClick={() => invoicesApi.exportQuickBooksCsv()}>
+            Export for QuickBooks
+          </button>
           {!showForm && <Button onClick={() => setShowForm(true)}>Generate invoice</Button>}
         </div>
       </div>

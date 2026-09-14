@@ -401,6 +401,75 @@ export class InvoicesService {
     return [csvRow(header), ...rows].join('\n');
   }
 
+  /// One row per invoice line, shaped for a QuickBooks (Online or Desktop)
+  /// invoice CSV import — Amwai does the club's accounting in QuickBooks and
+  /// has no direct integration, so this is the bridge: download, then import
+  /// via QuickBooks' own "Import invoices" CSV flow. Only SENT/PARTIAL/PAID
+  /// invoices are included — a DRAFT hasn't been issued yet and a VOID
+  /// invoice shouldn't post to the books.
+  async exportQuickBooksCsv(filters: { from?: string; to?: string } = {}): Promise<string> {
+    const where: Prisma.InvoiceWhereInput = { status: { in: ['SENT', 'PARTIAL', 'PAID'] } };
+    if (filters.from || filters.to) {
+      where.periodEnd = {};
+      if (filters.from) where.periodEnd.gte = new Date(filters.from);
+      if (filters.to) where.periodEnd.lte = new Date(filters.to);
+    }
+    const invoices = await this.prisma.invoice.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        lines: { orderBy: { description: 'asc' } },
+        enrollment: { select: { student: { select: { firstName: true, lastName: true } } } },
+        schoolGroup: { select: { institutionName: true } },
+        billTo: { select: { email: true } }
+      }
+    });
+
+    const header = [
+      'InvoiceNo',
+      'Customer',
+      'Email',
+      'InvoiceDate',
+      'DueDate',
+      'Item',
+      'ItemDescription',
+      'ItemQuantity',
+      'ItemRate',
+      'ItemAmount',
+      'Currency'
+    ];
+    const rows: string[] = [];
+    for (const inv of invoices) {
+      const customer = inv.enrollment
+        ? `${inv.enrollment.student.firstName} ${inv.enrollment.student.lastName}`
+        : (inv.schoolGroup?.institutionName ?? inv.number);
+      const invoiceDate = fmtDate(inv.issuedAt ?? inv.createdAt);
+      const dueDate = inv.dueAt ? fmtDate(inv.dueAt) : '';
+      const email = inv.billTo?.email ?? '';
+      const lines = inv.lines.length > 0 ? inv.lines : [
+        { description: 'Chess coaching', quantity: 1, unitAmount: inv.total, amount: inv.total }
+      ];
+      for (const line of lines) {
+        rows.push(
+          csvRow([
+            inv.number,
+            customer,
+            email,
+            invoiceDate,
+            dueDate,
+            'Chess Coaching',
+            line.description,
+            line.quantity,
+            num(line.unitAmount).toFixed(2),
+            num(line.amount).toFixed(2),
+            inv.currency
+          ])
+        );
+      }
+    }
+    return [csvRow(header), ...rows].join('\n');
+  }
+
   private async load(id: string) {
     const invoice = await this.prisma.invoice.findUnique({ where: { id } });
     if (!invoice) throw new NotFoundException('Invoice not found');

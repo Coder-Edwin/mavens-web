@@ -49,6 +49,14 @@ export class InvoicesController {
     return this.invoicesService.exportCsv({ status, from, to });
   }
 
+  // Declared before ':id' for the same reason as "export" above.
+  @Get('export-quickbooks')
+  @Header('Content-Type', 'text/csv')
+  @Header('Content-Disposition', 'attachment; filename="invoices-quickbooks.csv"')
+  exportQuickBooks(@Query('from') from?: string, @Query('to') to?: string) {
+    return this.invoicesService.exportQuickBooksCsv({ from, to });
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.invoicesService.findOne(id);
