@@ -29,6 +29,7 @@ const NAV_ITEMS: Record<EffectiveRole, { glyph: string; label: string; to?: stri
     { glyph: '♞', label: 'Play', to: '/app/play' },
     { glyph: '♝', label: 'Analysis', to: '/app/analysis' },
     { glyph: '♞', label: 'Lichess TV', to: '/app/lichess' },
+    { glyph: '♗', label: 'Classroom', to: '/app/classroom' },
     { glyph: '♖', label: 'Reports', to: '/app/reports' }
   ],
   coach: [
@@ -39,7 +40,8 @@ const NAV_ITEMS: Record<EffectiveRole, { glyph: string; label: string; to?: stri
     { glyph: '♜', label: 'Recording Sheets' },
     { glyph: '♞', label: 'Play', to: '/app/play' },
     { glyph: '♝', label: 'Analysis', to: '/app/analysis' },
-    { glyph: '♞', label: 'Lichess TV', to: '/app/lichess' }
+    { glyph: '♞', label: 'Lichess TV', to: '/app/lichess' },
+    { glyph: '♗', label: 'Classroom', to: '/app/classroom' }
   ],
   student: [
     { glyph: '♔', label: 'My Progress', to: '/app' },
@@ -49,7 +51,8 @@ const NAV_ITEMS: Record<EffectiveRole, { glyph: string; label: string; to?: stri
     { glyph: '♕', label: 'Badges' },
     { glyph: '♞', label: 'Play', to: '/app/play' },
     { glyph: '♝', label: 'Analysis', to: '/app/analysis' },
-    { glyph: '♞', label: 'Lichess TV', to: '/app/lichess' }
+    { glyph: '♞', label: 'Lichess TV', to: '/app/lichess' },
+    { glyph: '♗', label: 'Classroom', to: '/app/classroom' }
   ],
   parent: [
     { glyph: '♔', label: 'Overview' },

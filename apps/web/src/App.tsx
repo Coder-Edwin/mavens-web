@@ -35,6 +35,8 @@ import { PlayLobby } from '@/features/play/PlayLobby';
 import { GamePage } from '@/features/play/GamePage';
 import { AnalysisBoard } from '@/features/play/AnalysisBoard';
 import { LichessFeedPage } from '@/features/play/LichessFeedPage';
+import { ClassroomLobby } from '@/features/classroom/ClassroomLobby';
+import { ClassroomRoomPage } from '@/features/classroom/ClassroomRoomPage';
 
 const DASHBOARDS: Record<string, ReactElement> = {
   admin: <AdminOverview />,
@@ -67,6 +69,8 @@ function AuthenticatedApp() {
         <Route path="play/:id" element={<GamePage />} />
         <Route path="analysis" element={<AnalysisBoard />} />
         <Route path="lichess" element={<LichessFeedPage />} />
+        <Route path="classroom" element={<ClassroomLobby />} />
+        <Route path="classroom/:id" element={<ClassroomRoomPage />} />
         <Route path="learn" element={<MyCoursesPage />} />
         <Route path="learn/:courseId" element={<CoursePlayerPage />} />
         {effectiveRole === 'admin' && (
