@@ -100,6 +100,7 @@ export function ClassSchedulesAdmin() {
       endDate: s.endDate ? s.endDate.slice(0, 10) : undefined,
       status: s.status,
       capacity: s.capacity ?? undefined,
+      payoutRate: s.payoutRate ?? undefined,
       notes: s.notes ?? undefined
     });
     setEditingId(s.id);
@@ -129,6 +130,7 @@ export function ClassSchedulesAdmin() {
       endDate: form.endDate ? new Date(form.endDate).toISOString() : undefined,
       status: form.status,
       capacity: form.capacity || undefined,
+      payoutRate: form.payoutRate || undefined,
       notes: form.notes?.trim() || undefined
     };
     try {
@@ -442,6 +444,27 @@ export function ClassSchedulesAdmin() {
                       setForm((f) => ({
                         ...f,
                         capacity: e.target.value ? Number(e.target.value) : undefined
+                      }))
+                    }
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={labelStyle} htmlFor="sc-payout-rate">
+                    Coach payout rate (KES/session) <span style={{ opacity: 0.6 }}>— optional</span>
+                  </label>
+                  <input
+                    id="sc-payout-rate"
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    placeholder="e.g. 2000 for a HOME visit"
+                    title="Overrides the coach's flat session rate for sessions from this schedule — e.g. a HOME visit paying more to cover travel. Leave blank to use the coach's flat rate."
+                    style={inputStyle}
+                    value={form.payoutRate ?? ''}
+                    onChange={(e) =>
+                      setForm((f) => ({
+                        ...f,
+                        payoutRate: e.target.value ? Number(e.target.value) : undefined
                       }))
                     }
                   />

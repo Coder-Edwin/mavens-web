@@ -11,6 +11,7 @@ import {
   type SchedulePlacementInput
 } from '@/lib/placements';
 import { LEVEL_LABEL, STUDENT_LEVELS, formatCrmDate, type StudentLevel } from '@/lib/enrollments';
+import { levelForRating } from '@/lib/level';
 import { studentsApi, studentName, type StudentRecord } from '@/lib/students';
 import { coachesApi, coachName, type Coach } from '@/lib/coaches';
 import { inputStyle, labelStyle, mutedNote, rowActions } from './crmStyles';
@@ -42,6 +43,7 @@ export function PlacementsAdmin() {
   const [saving, setSaving] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [resultLevel, setResultLevel] = useState<Record<string, StudentLevel>>({});
+  const [rating, setRating] = useState<Record<string, string>>({});
 
   async function refresh(next: Tab = tab) {
     try {
@@ -99,12 +101,17 @@ export function PlacementsAdmin() {
   }
 
   async function complete(a: PlacementAssessment) {
-    const level = resultLevel[a.id] ?? 'NOVICE';
+    const ratingRaw = rating[a.id]?.trim();
+    const ratingNum = ratingRaw ? Number(ratingRaw) : undefined;
+    const hasRating = ratingNum != null && !Number.isNaN(ratingNum);
+    // A rating is preferred — it's what the server derives the level from
+    // (Amwai's bands). The select is a fallback for when no rating is entered.
+    const level = hasRating ? levelForRating(ratingNum!) : (resultLevel[a.id] ?? 'NOVICE');
     if (!window.confirm(`Record ${studentLabel(a)} as ${LEVEL_LABEL[level]}? This sets their level.`)) return;
     setBusyId(a.id);
     setError(null);
     try {
-      await placementsApi.complete(a.id, { resultLevel: level });
+      await placementsApi.complete(a.id, hasRating ? { rating: ratingNum } : { resultLevel: level });
       await refresh();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not complete the assessment.');
@@ -293,11 +300,32 @@ export function PlacementsAdmin() {
                     <td style={rowActions}>
                       {a.status === 'SCHEDULED' ? (
                         <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+                          <input
+                            type="number"
+                            min={100}
+                            max={3200}
+                            placeholder="Rating"
+                            aria-label={`Rating for ${studentLabel(a)}`}
+                            title="Rating (preferred) — the level is derived from it automatically"
+                            value={rating[a.id] ?? ''}
+                            onChange={(e) => setRating((m) => ({ ...m, [a.id]: e.target.value }))}
+                            style={{ ...inputStyle, width: 72, margin: 0, padding: '6px 8px' }}
+                          />
                           <select
                             aria-label={`Result level for ${studentLabel(a)}`}
-                            value={resultLevel[a.id] ?? 'NOVICE'}
+                            value={
+                              rating[a.id]?.trim() && !Number.isNaN(Number(rating[a.id]))
+                                ? levelForRating(Number(rating[a.id]))
+                                : (resultLevel[a.id] ?? 'NOVICE')
+                            }
+                            disabled={Boolean(rating[a.id]?.trim()) && !Number.isNaN(Number(rating[a.id]))}
                             onChange={(e) =>
                               setResultLevel((m) => ({ ...m, [a.id]: e.target.value as StudentLevel }))
+                            }
+                            title={
+                              rating[a.id]?.trim()
+                                ? 'Derived from the rating — clear the rating to pick a level manually'
+                                : undefined
                             }
                             style={{ ...inputStyle, width: 'auto', margin: 0, padding: '6px 8px' }}
                           >

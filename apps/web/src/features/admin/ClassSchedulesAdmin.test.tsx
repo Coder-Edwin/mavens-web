@@ -82,6 +82,7 @@ const sched = (over: Partial<ClassSchedule>): ClassSchedule => ({
   endDate: null,
   status: 'ACTIVE',
   capacity: 12,
+  payoutRate: null,
   notes: null,
   createdAt: '2026-01-01T00:00:00Z',
   updatedAt: '2026-01-01T00:00:00Z',

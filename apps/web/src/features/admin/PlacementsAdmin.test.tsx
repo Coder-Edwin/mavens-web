@@ -122,6 +122,22 @@ describe('PlacementsAdmin', () => {
     expect(completeCalls).toEqual([{ id: 'pa1', body: { resultLevel: 'ADVANCED' } }]);
   });
 
+  it('sends a rating instead of resultLevel when one is entered, and derives the level shown', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const user = userEvent.setup();
+    renderAdmin();
+    const table = await screen.findByRole('table');
+
+    await user.type(within(table).getByRole('spinbutton', { name: /rating for/i }), '1650');
+    const select = within(table).getByRole('combobox', { name: /result level for/i }) as HTMLSelectElement;
+    expect(select.value).toBe('INTERMEDIATE');
+    expect(select).toBeDisabled();
+
+    await user.click(within(table).getByRole('button', { name: 'Complete' }));
+
+    expect(completeCalls).toEqual([{ id: 'pa1', body: { rating: 1650 } }]);
+  });
+
   it('schedules a new assessment from the form', async () => {
     const user = userEvent.setup();
     renderAdmin();

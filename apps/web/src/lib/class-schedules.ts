@@ -35,6 +35,10 @@ export interface ClassSchedule {
   endDate: string | null;
   status: ScheduleStatus;
   capacity: number | null;
+  // KES paid to the coach per COMPLETED session generated from this
+  // schedule (e.g. a HOME-visit rate covering travel) — overrides the
+  // coach's flat rate. Null = use the coach's flat rate.
+  payoutRate: number | null;
   notes: string | null;
   createdAt: string;
   updatedAt: string;
@@ -64,6 +68,7 @@ export interface ClassScheduleInput {
   endDate?: string;
   status?: ScheduleStatus;
   capacity?: number;
+  payoutRate?: number | null;
   notes?: string;
 }
 

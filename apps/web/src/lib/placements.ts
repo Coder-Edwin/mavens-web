@@ -74,9 +74,12 @@ export const placementsApi = {
     id: string,
     patch: { scheduledFor?: string; assessorCoachId?: string; notes?: string }
   ) => api.patch<PlacementAssessment>(`/placements/${id}`, patch),
+  // A rating is preferred — the API derives the level from Amwai's bands
+  // (Novice <1200, Intermediate 1200-1700, Advanced >1700) and it wins over
+  // resultLevel when both are sent.
   complete: (
     id: string,
-    body: { resultLevel: StudentLevel; nextReviewDue?: string; notes?: string }
+    body: { resultLevel?: StudentLevel; rating?: number; nextReviewDue?: string; notes?: string }
   ) => api.post<PlacementAssessment>(`/placements/${id}/complete`, body),
   cancel: (id: string, body: { notes?: string } = {}) =>
     api.post<PlacementAssessment>(`/placements/${id}/cancel`, body),
