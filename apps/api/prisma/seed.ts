@@ -51,6 +51,28 @@ async function main() {
     console.log(`Seeded ${p.billingCycle} plan: ${created.name} (KES ${created.amount})`);
   }
 
+  // ---------- 2026 CBC terms (Amwai, Sept 2026) ----------
+  // Kenya CBC term dates for 2026. International-curriculum schools vary
+  // per school and aren't modeled here — these are the club's own terms.
+  const terms: { name: string; startDate: Date; endDate: Date }[] = [
+    { name: 'Term 1 2026', startDate: new Date('2026-01-05'), endDate: new Date('2026-04-02') },
+    { name: 'Term 2 2026', startDate: new Date('2026-04-27'), endDate: new Date('2026-07-31') },
+    { name: 'Term 3 2026', startDate: new Date('2026-08-24'), endDate: new Date('2026-10-23') }
+  ];
+  const today = new Date();
+  for (const t of terms) {
+    const existing = await prisma.term.findFirst({ where: { name: t.name } });
+    if (existing) {
+      // eslint-disable-next-line no-console
+      console.log(`Term already exists: ${existing.name}`);
+      continue;
+    }
+    const status = today < t.startDate ? 'PLANNED' : today > t.endDate ? 'CLOSED' : 'ACTIVE';
+    const created = await prisma.term.create({ data: { ...t, status } });
+    // eslint-disable-next-line no-console
+    console.log(`Seeded term: ${created.name} (${created.status})`);
+  }
+
   // ---------- Parent, linked to Faith ----------
   const parentPasswordHash = await bcrypt.hash('changeme123', 10);
   const parentUser = await prisma.user.upsert({
