@@ -32,32 +32,48 @@ export class PayoutsService {
     const periodEnd = new Date(dto.periodEnd);
     if (periodEnd < periodStart) throw new BadRequestException('periodEnd is before periodStart');
 
-    const grouped = await this.prisma.session.groupBy({
-      by: ['coachId'],
+    // Pull the actual sessions rather than a flat groupBy count: a
+    // classSchedule can carry its own payoutRate (e.g. a HOME visit paying
+    // more than a CENTER session to cover travel), so two sessions for the
+    // same coach in the same period can legitimately pay different amounts.
+    const sessions = await this.prisma.session.findMany({
       where: { status: 'COMPLETED', date: { gte: periodStart, lte: periodEnd } },
-      _count: { _all: true }
+      select: {
+        coachId: true,
+        classSchedule: { select: { payoutRate: true } }
+      }
     });
-    if (grouped.length === 0) {
+    if (sessions.length === 0) {
       throw new BadRequestException('No completed sessions in this period');
     }
 
+    const coachIds = [...new Set(sessions.map((s) => s.coachId))];
     const coaches = await this.prisma.coachProfile.findMany({
-      where: { id: { in: grouped.map((g) => g.coachId) } },
+      where: { id: { in: coachIds } },
       select: { id: true, sessionRate: true }
     });
-    const rateById = new Map(coaches.map((c) => [c.id, num(c.sessionRate)]));
+    const flatRateById = new Map(coaches.map((c) => [c.id, num(c.sessionRate)]));
 
-    const items = grouped.map((g) => {
-      const rate = rateById.get(g.coachId) ?? 0;
-      const count = g._count._all;
-      return {
-        coachId: g.coachId,
-        sessionCount: count,
-        ratePerSession: rate,
-        amount: round2(rate * count),
-        notes: rate > 0 ? null : 'No session rate set for this coach'
-      };
-    });
+    const byCoach = new Map<string, { count: number; amount: number; anyRateMissing: boolean }>();
+    for (const s of sessions) {
+      const flatRate = flatRateById.get(s.coachId) ?? 0;
+      const rate = s.classSchedule?.payoutRate != null ? num(s.classSchedule.payoutRate) : flatRate;
+      const entry = byCoach.get(s.coachId) ?? { count: 0, amount: 0, anyRateMissing: false };
+      entry.count += 1;
+      entry.amount += rate;
+      if (rate <= 0) entry.anyRateMissing = true;
+      byCoach.set(s.coachId, entry);
+    }
+
+    const items = [...byCoach.entries()].map(([coachId, agg]) => ({
+      coachId,
+      sessionCount: agg.count,
+      // Sessions for the same coach may carry mixed rates (schedule override
+      // vs. flat rate); store the average per-session rate for display.
+      ratePerSession: round2(agg.amount / agg.count),
+      amount: round2(agg.amount),
+      notes: agg.anyRateMissing ? 'No session rate set for at least one session' : null
+    }));
 
     return this.prisma.payoutRun.create({
       data: {

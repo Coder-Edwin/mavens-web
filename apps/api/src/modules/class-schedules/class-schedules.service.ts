@@ -67,6 +67,7 @@ export class ClassSchedulesService {
         endDate: dto.endDate ? new Date(dto.endDate) : null,
         status: dto.status ?? 'ACTIVE',
         capacity: dto.capacity ?? null,
+        payoutRate: dto.payoutRate ?? null,
         notes: dto.notes?.trim() || null
       },
       include: this.include
@@ -135,6 +136,7 @@ export class ClassSchedulesService {
         endDate: dto.endDate !== undefined ? (dto.endDate ? new Date(dto.endDate) : null) : undefined,
         status: dto.status ?? undefined,
         capacity: dto.capacity ?? undefined,
+        payoutRate: dto.payoutRate !== undefined ? dto.payoutRate : undefined,
         notes: dto.notes !== undefined ? dto.notes.trim() || null : undefined
       },
       include: this.include

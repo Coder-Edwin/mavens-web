@@ -2,6 +2,7 @@ import {
   IsIn,
   IsInt,
   IsISO8601,
+  IsNumber,
   IsOptional,
   IsString,
   Matches,
@@ -85,6 +86,13 @@ export class CreateClassScheduleDto {
   @Min(1)
   capacity?: number;
 
+  // KES per COMPLETED session for a coach paid from this schedule (e.g. a
+  // HOME-visit rate covering travel) — overrides the coach's flat rate.
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  payoutRate?: number;
+
   @IsOptional()
   @IsString()
   @MaxLength(2000)
@@ -158,6 +166,12 @@ export class UpdateClassScheduleDto {
   @IsInt()
   @Min(1)
   capacity?: number;
+
+  // `null` clears an override back to the coach's flat rate.
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  payoutRate?: number | null;
 
   @IsOptional()
   @IsString()

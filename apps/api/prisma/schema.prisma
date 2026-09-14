@@ -921,6 +921,11 @@ model ClassSchedule {
   endDate         DateTime?
   status          ScheduleStatus @default(ACTIVE)
   capacity        Int?
+  // KES paid to the coach per COMPLETED session generated from this
+  // schedule — overrides the coach's flat sessionRate (e.g. HOME visits
+  // pay more than CENTER sessions to cover travel). Null = use the coach's
+  // flat rate.
+  payoutRate      Decimal?       @db.Decimal(10, 2)
   notes           String?        @db.Text
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt

@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { levelForRating } from '../../common/level';
 import {
   CancelPlacementDto,
   CompletePlacementDto,
@@ -113,6 +114,12 @@ export class PlacementsService {
     if (assessment.status !== 'SCHEDULED') {
       throw new BadRequestException('This assessment is not open');
     }
+    if (dto.rating == null && !dto.resultLevel) {
+      throw new BadRequestException('Provide a rating or a result level');
+    }
+    // A rating is the objective signal (Amwai's bands) and wins over a
+    // manually chosen level when both are sent.
+    const resultLevel = dto.rating != null ? levelForRating(dto.rating) : dto.resultLevel!;
 
     const completedAt = new Date();
     const nextReviewDue = dto.nextReviewDue
@@ -124,7 +131,7 @@ export class PlacementsService {
         where: { id },
         data: {
           status: 'COMPLETED',
-          resultLevel: dto.resultLevel,
+          resultLevel,
           completedAt,
           nextReviewDue,
           notes: dto.notes !== undefined ? dto.notes.trim() || null : undefined
@@ -134,7 +141,7 @@ export class PlacementsService {
 
       await tx.studentProfile.update({
         where: { id: assessment.studentId },
-        data: { level: dto.resultLevel }
+        data: { level: resultLevel, ...(dto.rating != null ? { currentRating: dto.rating } : {}) }
       });
 
       if (assessment.enrollmentId) {
@@ -146,29 +153,29 @@ export class PlacementsService {
             where: { id: enrollment.id },
             data: {
               status: 'ACTIVE',
-              level: dto.resultLevel,
+              level: resultLevel,
               waitlistNote: null,
               events: {
                 create: {
                   type: 'PLACED',
                   fromValue: enrollment.level ?? null,
-                  toValue: dto.resultLevel,
+                  toValue: resultLevel,
                   byUserId: byUserId ?? null,
                   note: `Placed from assessment ${id}`
                 }
               }
             }
           });
-        } else if (enrollment && enrollment.level !== dto.resultLevel) {
+        } else if (enrollment && enrollment.level !== resultLevel) {
           await tx.enrollment.update({
             where: { id: enrollment.id },
             data: {
-              level: dto.resultLevel,
+              level: resultLevel,
               events: {
                 create: {
                   type: 'LEVEL_CHANGE',
                   fromValue: enrollment.level ?? null,
-                  toValue: dto.resultLevel,
+                  toValue: resultLevel,
                   byUserId: byUserId ?? null,
                   note: `Re-assessment ${id}`
                 }

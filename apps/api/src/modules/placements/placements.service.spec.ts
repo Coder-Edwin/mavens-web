@@ -150,6 +150,47 @@ describe('PlacementsService', () => {
       await service.complete('pa-1', { resultLevel: 'NOVICE' }, 'admin-1');
       expect(txEnrollmentUpdate).not.toHaveBeenCalled();
     });
+
+    it('refuses when neither a rating nor a resultLevel is supplied', async () => {
+      prisma.placementAssessment.findUnique.mockResolvedValue({
+        id: 'pa-1',
+        status: 'SCHEDULED',
+        studentId: 'stu-1',
+        enrollmentId: null
+      });
+      await expect(service.complete('pa-1', {})).rejects.toThrow(BadRequestException);
+    });
+
+    it.each([
+      [1100, 'NOVICE'],
+      [1200, 'INTERMEDIATE'],
+      [1700, 'INTERMEDIATE'],
+      [1701, 'ADVANCED']
+    ])('derives %s -> %s from a rating, per Amwai’s bands', async (rating, expected) => {
+      prisma.placementAssessment.findUnique.mockResolvedValue({
+        id: 'pa-1',
+        status: 'SCHEDULED',
+        studentId: 'stu-1',
+        enrollmentId: null
+      });
+      const result = await service.complete('pa-1', { rating });
+      expect(result.resultLevel).toBe(expected);
+      expect(txStudentUpdate).toHaveBeenCalledWith({
+        where: { id: 'stu-1' },
+        data: { level: expected, currentRating: rating }
+      });
+    });
+
+    it('prefers a rating over an explicit resultLevel when both are sent', async () => {
+      prisma.placementAssessment.findUnique.mockResolvedValue({
+        id: 'pa-1',
+        status: 'SCHEDULED',
+        studentId: 'stu-1',
+        enrollmentId: null
+      });
+      const result = await service.complete('pa-1', { rating: 1800, resultLevel: 'NOVICE' });
+      expect(result.resultLevel).toBe('ADVANCED');
+    });
   });
 
   describe('cancel / remove', () => {

@@ -93,8 +93,42 @@ describe('ClassSchedulesService', () => {
         status: 'ACTIVE',
         durationMinutes: 60,
         weekday: 3,
-        startTime: '15:30'
+        startTime: '15:30',
+        payoutRate: null
       });
+    });
+
+    it('persists a payoutRate override (e.g. a HOME-visit rate covering travel)', async () => {
+      await service.create({
+        title: 'Home visit',
+        deliveryType: 'HOME',
+        weekday: 2,
+        startTime: '16:00',
+        startDate: '2026-02-01',
+        payoutRate: 2000
+      });
+      const data = prisma.classSchedule.create.mock.calls[0][0].data;
+      expect(data.payoutRate).toBe(2000);
+    });
+  });
+
+  describe('update', () => {
+    it('sets a payoutRate override', async () => {
+      prisma.classSchedule.findUnique.mockResolvedValue(schedule());
+      await service.update('cs-1', { payoutRate: 1800 });
+      expect(prisma.classSchedule.update.mock.calls[0][0].data.payoutRate).toBe(1800);
+    });
+
+    it('clears a payoutRate override back to the coach flat rate when null is sent', async () => {
+      prisma.classSchedule.findUnique.mockResolvedValue(schedule({ payoutRate: 2000 }));
+      await service.update('cs-1', { payoutRate: null });
+      expect(prisma.classSchedule.update.mock.calls[0][0].data.payoutRate).toBeNull();
+    });
+
+    it('leaves payoutRate untouched when omitted', async () => {
+      prisma.classSchedule.findUnique.mockResolvedValue(schedule({ payoutRate: 2000 }));
+      await service.update('cs-1', { title: 'Renamed' });
+      expect(prisma.classSchedule.update.mock.calls[0][0].data.payoutRate).toBeUndefined();
     });
   });
 
