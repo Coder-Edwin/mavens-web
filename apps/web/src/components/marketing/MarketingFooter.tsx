@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom';
+import { CLUB_WHATSAPP_NUMBER, waLink } from '@/lib/whatsapp';
 
 /** Shared public-site footer. Section links point at the landing page's anchors. */
 export function MarketingFooter() {
+  const clubWaLink = waLink(CLUB_WHATSAPP_NUMBER, 'Hi Mavens Chess Club, I would like to know more.');
   return (
     <footer className="mk-footer" id="contact">
       <div className="mk-container">
@@ -29,7 +31,15 @@ export function MarketingFooter() {
             <h4>Contact</h4>
             <ul>
               <li>A108 Westlands Road, Nairobi</li>
-              <li>+254 702 101 676</li>
+              <li>
+                +254 702 101 676
+                {clubWaLink && (
+                  <>
+                    {' '}
+                    (<a href={clubWaLink} target="_blank" rel="noreferrer">WhatsApp</a>)
+                  </>
+                )}
+              </li>
               <li>+254 702 101 686</li>
               {/* PLACEHOLDER email — confirm the real address. */}
               <li><a href="mailto:info@mavens.co.ke">info@mavens.co.ke</a></li>

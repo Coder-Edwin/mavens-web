@@ -13,6 +13,7 @@ import {
   type EmploymentType
 } from '@/lib/coaches';
 import { inputStyle, labelStyle, mutedNote, rowActions } from './crmStyles';
+import { waLink } from '@/lib/whatsapp';
 
 const EMPTY: CoachInput = {
   email: '',
@@ -302,7 +303,20 @@ export function CoachesAdmin() {
                   <td className="mono" style={{ fontSize: 12 }}>
                     {c.user?.email}
                     {c.phone && (
-                      <div style={{ color: 'var(--muted)', marginTop: 2 }}>{c.phone}</div>
+                      <div style={{ color: 'var(--muted)', marginTop: 2 }}>
+                        {c.phone}
+                        {waLink(c.phone) && (
+                          <a
+                            href={waLink(c.phone)!}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{ marginLeft: 6 }}
+                            title="Message on WhatsApp"
+                          >
+                            WhatsApp
+                          </a>
+                        )}
+                      </div>
                     )}
                   </td>
                   <td style={{ fontSize: 13 }}>{c.specialty || '—'}</td>

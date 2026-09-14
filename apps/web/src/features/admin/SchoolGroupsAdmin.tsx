@@ -11,6 +11,7 @@ import {
   type SchoolGroupStatus
 } from '@/lib/school-groups';
 import { inputStyle, labelStyle, mutedNote, rowActions } from './crmStyles';
+import { waLink } from '@/lib/whatsapp';
 
 const EMPTY: SchoolGroupInput = {
   institutionName: '',
@@ -316,6 +317,14 @@ export function SchoolGroupsAdmin() {
                         {g.coordinatorPhone}
                         {g.coordinatorPhone && g.coordinatorEmail ? ' · ' : ''}
                         {g.coordinatorEmail}
+                        {waLink(g.coordinatorPhone) && (
+                          <>
+                            {' · '}
+                            <a href={waLink(g.coordinatorPhone)!} target="_blank" rel="noreferrer" title="Message on WhatsApp">
+                              WhatsApp
+                            </a>
+                          </>
+                        )}
                       </div>
                     )}
                   </td>

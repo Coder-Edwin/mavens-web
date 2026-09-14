@@ -13,6 +13,7 @@ import {
 } from '@/lib/leads';
 import { schoolGroupsApi, type SchoolGroup } from '@/lib/school-groups';
 import { inputStyle, labelStyle } from './crmStyles';
+import { waLink } from '@/lib/whatsapp';
 
 function splitChildName(name: string | null): { first: string; last: string } {
   const parts = (name ?? '').trim().split(/\s+/).filter(Boolean);
@@ -386,6 +387,14 @@ export function LeadsAdmin() {
                       <a href={`mailto:${l.email}`}>{l.email}</a>
                       <br />
                       <a href={`tel:${l.phone}`}>{l.phone}</a>
+                      {waLink(l.phone) && (
+                        <>
+                          {' · '}
+                          <a href={waLink(l.phone)!} target="_blank" rel="noreferrer" title="Message on WhatsApp">
+                            WhatsApp
+                          </a>
+                        </>
+                      )}
                     </td>
                     <td style={{ fontSize: 13 }}>
                       {l.childName || '—'}
