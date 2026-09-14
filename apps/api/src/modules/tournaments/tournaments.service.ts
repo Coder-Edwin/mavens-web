@@ -48,6 +48,22 @@ export class TournamentsService {
     }));
   }
 
+  /// A student's own registrations, tournament joined — powers the student
+  /// tournaments view ("am I registered, and how did I do") without them
+  /// needing to know their own StudentProfile id.
+  async myRegistrations(currentUser: AuthenticatedUser) {
+    const studentProfile = await this.prisma.studentProfile.findUnique({
+      where: { userId: currentUser.userId }
+    });
+    if (!studentProfile) return [];
+
+    return this.prisma.tournamentRegistration.findMany({
+      where: { studentId: studentProfile.id },
+      include: { tournament: true },
+      orderBy: { tournament: { date: 'asc' } }
+    });
+  }
+
   async findOne(id: string) {
     const tournament = await this.prisma.tournament.findUnique({
       where: { id },

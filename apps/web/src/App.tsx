@@ -12,6 +12,7 @@ import { ArticlesAdmin } from '@/features/admin/ArticlesAdmin';
 import { LeadsAdmin } from '@/features/admin/LeadsAdmin';
 import { StudentsAdmin } from '@/features/admin/StudentsAdmin';
 import { MerchandiseAdmin } from '@/features/admin/MerchandiseAdmin';
+import { StudentTournaments } from '@/features/student/StudentTournaments';
 import { AnnouncementsAdmin } from '@/features/admin/AnnouncementsAdmin';
 import { SchoolGroupsAdmin } from '@/features/admin/SchoolGroupsAdmin';
 import { EnrollmentsAdmin } from '@/features/admin/EnrollmentsAdmin';
@@ -98,6 +99,9 @@ function AuthenticatedApp() {
             <Route path="tournaments/:id" element={<TournamentDetail />} />
             <Route path="reports" element={<ReportsPage />} />
           </>
+        )}
+        {effectiveRole === 'student' && (
+          <Route path="tournaments" element={<StudentTournaments />} />
         )}
         <Route path="*" element={<Navigate to="/app" replace />} />
       </Routes>

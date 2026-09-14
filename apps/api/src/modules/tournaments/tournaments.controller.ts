@@ -32,6 +32,15 @@ export class TournamentsController {
     return this.tournamentsService.findAll();
   }
 
+  // GET /api/v1/tournaments/mine — a student's own registrations, with the
+  // tournament joined. Declared before ':id' so "mine" isn't captured as an id.
+  @Get('mine')
+  @UseGuards(RolesGuard)
+  @Roles('STUDENT')
+  mine(@CurrentUser() user: AuthenticatedUser) {
+    return this.tournamentsService.myRegistrations(user);
+  }
+
   // GET /api/v1/tournaments/:id — any authenticated role
   @Get(':id')
   findOne(@Param('id') id: string) {

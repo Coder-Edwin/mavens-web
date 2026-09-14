@@ -26,6 +26,24 @@ export interface TournamentRegistration {
   student?: { firstName: string; lastName: string };
 }
 
+// The raw Tournament row as joined onto GET /tournaments/mine — narrower
+// than TournamentSummary (no registeredCount/isFull, those are only
+// computed on the plain list endpoint).
+export interface TournamentBase {
+  id: string;
+  name: string;
+  date: string;
+  venue: string;
+  feeAmount: string;
+  capacity: number | null;
+  totalRounds: number | null;
+  registrationDeadline: string | null;
+}
+
+export interface MyTournamentRegistration extends TournamentRegistration {
+  tournament: TournamentBase;
+}
+
 export interface Tournament {
   id: string;
   name: string;
@@ -93,6 +111,10 @@ export const tournamentsApi = {
     api.patch<TournamentSummary>(`/tournaments/${id}`, patch),
   register: (id: string, studentId: string) =>
     api.post<TournamentRegistration>(`/tournaments/${id}/register`, { studentId }),
+  // For a STUDENT caller — the server resolves "which student" from the
+  // token, so no studentId is sent (or needed).
+  registerSelf: (id: string) => api.post<TournamentRegistration>(`/tournaments/${id}/register`, {}),
+  mine: () => api.get<MyTournamentRegistration[]>('/tournaments/mine'),
   updateRegistration: (
     id: string,
     registrationId: string,
