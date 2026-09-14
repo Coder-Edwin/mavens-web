@@ -654,6 +654,39 @@ model Game {
 }
 
 // ─────────────────────────────────────────────────────────────
+// Classroom — a live, shared analysis board + video for coaching
+// (PART 2 #5, replaces Zoom). Video itself is an embedded Jitsi Meet
+// iframe on the client, keyed off `code`; the server only owns the shared
+// board state and room lifecycle.
+// ─────────────────────────────────────────────────────────────
+
+enum ClassroomRoomStatus {
+  OPEN
+  CLOSED
+}
+
+/// Anyone holding `code` can join and move on the shared board — it's a
+/// whiteboard, not a turn-enforced 1v1 game (chess.js still enforces legal
+/// moves and whose turn it is on the *loaded* position). `library` holds a
+/// small tray of loaded games/positions ("load several games at once"),
+/// each `{ id, label, pgn }`.
+model ClassroomRoom {
+  id         String              @id @default(uuid())
+  code       String              @unique
+  title      String?
+  hostUserId String // User id, no FK (matches EnrollmentEvent.byUserId)
+  status     ClassroomRoomStatus @default(OPEN)
+  fen        String              @db.Text
+  pgn        String              @db.Text
+  library    Json                @default("[]")
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+  closedAt   DateTime?
+
+  @@index([status, createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────
 // Announcements — admin broadcasts targeted at a role group
 // ─────────────────────────────────────────────────────────────
 

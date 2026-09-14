@@ -24,6 +24,7 @@ import { PayoutsModule } from './modules/payouts/payouts.module';
 import { CoursesModule } from './modules/courses/courses.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { LichessModule } from './modules/lichess/lichess.module';
+import { ClassroomModule } from './modules/classroom/classroom.module';
 
 @Module({
   imports: [
@@ -51,7 +52,8 @@ import { LichessModule } from './modules/lichess/lichess.module';
     PayoutsModule,
     CoursesModule,
     ReportsModule,
-    LichessModule
+    LichessModule,
+    ClassroomModule
   ]
 })
 export class AppModule {}
