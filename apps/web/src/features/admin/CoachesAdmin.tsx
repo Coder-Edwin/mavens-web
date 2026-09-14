@@ -225,6 +225,8 @@ export function CoachesAdmin() {
                     type="number"
                     min={0}
                     step="0.01"
+                    placeholder="e.g. 1500"
+                    title="Amwai's guidance: KES 1,500-2,000/hour, varies by distance. A HOME-visit schedule can override this with its own payout rate."
                     style={inputStyle}
                     value={form.sessionRate ?? ''}
                     onChange={(e) =>
@@ -234,6 +236,10 @@ export function CoachesAdmin() {
                       }))
                     }
                   />
+                  <div style={mutedNote}>
+                    Typical range KES 1,500–2,000/hr, varies by distance — a class schedule's own payout
+                    rate overrides this for its sessions.
+                  </div>
                 </div>
               </div>
 
