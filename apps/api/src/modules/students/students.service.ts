@@ -29,6 +29,8 @@ export class StudentsService {
             firstName: dto.firstName,
             lastName: dto.lastName,
             dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : undefined,
+            homeAddress: dto.homeAddress?.trim() || undefined,
+            priorExperience: dto.priorExperience?.trim() || undefined,
             ...(dto.coachId && {
               coachLinks: {
                 create: { coachId: dto.coachId }
@@ -56,9 +58,12 @@ export class StudentsService {
   async findAll(currentUser: AuthenticatedUser, scope?: string) {
     const wantsCoachView = scope === 'own' && currentUser.isCoach;
 
+    const userSelect = { user: { select: { email: true, isActive: true } } } as const;
+
     if (currentUser.role === 'ADMIN' && !wantsCoachView) {
       return this.prisma.studentProfile.findMany({
-        orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }]
+        orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+        include: userSelect
       });
     }
 
@@ -70,7 +75,8 @@ export class StudentsService {
 
       return this.prisma.studentProfile.findMany({
         where: { coachLinks: { some: { coachId: coachProfile.id } } },
-        orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }]
+        orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+        include: userSelect
       });
     }
 
@@ -82,7 +88,8 @@ export class StudentsService {
 
       return this.prisma.studentProfile.findMany({
         where: { parentLinks: { some: { parentId: parentProfile.id } } },
-        orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }]
+        orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+        include: userSelect
       });
     }
 

@@ -1,4 +1,4 @@
-import { IsDateString, IsEmail, IsOptional, IsString, IsUUID, MinLength } from 'class-validator';
+import { IsDateString, IsEmail, IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
 
 export class CreateStudentDto {
   @IsEmail()
@@ -19,4 +19,15 @@ export class CreateStudentDto {
   @IsOptional()
   @IsUUID()
   coachId?: string; // CoachProfile.id — links this student to a coach immediately if provided
+
+  // For HOME-delivery lessons.
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  homeAddress?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  priorExperience?: string;
 }

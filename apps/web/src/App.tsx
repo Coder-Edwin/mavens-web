@@ -10,6 +10,7 @@ import { Shell } from '@/layouts/Shell';
 import { AdminOverview } from '@/features/admin/AdminOverview';
 import { ArticlesAdmin } from '@/features/admin/ArticlesAdmin';
 import { LeadsAdmin } from '@/features/admin/LeadsAdmin';
+import { StudentsAdmin } from '@/features/admin/StudentsAdmin';
 import { AnnouncementsAdmin } from '@/features/admin/AnnouncementsAdmin';
 import { SchoolGroupsAdmin } from '@/features/admin/SchoolGroupsAdmin';
 import { EnrollmentsAdmin } from '@/features/admin/EnrollmentsAdmin';
@@ -75,6 +76,7 @@ function AuthenticatedApp() {
         <Route path="learn/:courseId" element={<CoursePlayerPage />} />
         {effectiveRole === 'admin' && (
           <>
+            <Route path="students" element={<StudentsAdmin />} />
             <Route path="articles" element={<ArticlesAdmin />} />
             <Route path="leads" element={<LeadsAdmin />} />
             <Route path="announcements" element={<AnnouncementsAdmin />} />

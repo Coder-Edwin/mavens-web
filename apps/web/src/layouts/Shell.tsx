@@ -11,7 +11,7 @@ const NAV_ITEMS: Record<EffectiveRole, { glyph: string; label: string; to?: stri
   admin: [
     { glyph: '♔', label: 'Overview', to: '/app' },
     { glyph: '♞', label: 'Coaches', to: '/app/coaches' },
-    { glyph: '♟', label: 'Students' },
+    { glyph: '♟', label: 'Students', to: '/app/students' },
     { glyph: '♜', label: 'Tournaments', to: '/app/tournaments' },
     { glyph: '♘', label: 'Enrollments', to: '/app/enrollments' },
     { glyph: '♗', label: 'Placement queue', to: '/app/placements' },
