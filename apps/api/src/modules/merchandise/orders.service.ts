@@ -78,7 +78,10 @@ export class OrdersService {
     if (currentUser.role === 'ADMIN') {
       return this.prisma.order.findMany({
         orderBy: { createdAt: 'desc' },
-        include: { items: true, parent: { select: { firstName: true, lastName: true } } }
+        include: {
+          items: { include: { merchandiseItem: { select: { name: true } } } },
+          parent: { select: { firstName: true, lastName: true } }
+        }
       });
     }
 
