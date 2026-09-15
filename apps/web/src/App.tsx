@@ -15,6 +15,8 @@ import { MerchandiseAdmin } from '@/features/admin/MerchandiseAdmin';
 import { StudentTournaments } from '@/features/student/StudentTournaments';
 import { LessonPlans } from '@/features/coach/LessonPlans';
 import { RecordingSheets } from '@/features/coach/RecordingSheets';
+import { Puzzles } from '@/features/coach/Puzzles';
+import { TodaysSessions } from '@/features/coach/TodaysSessions';
 import { AnnouncementsAdmin } from '@/features/admin/AnnouncementsAdmin';
 import { SchoolGroupsAdmin } from '@/features/admin/SchoolGroupsAdmin';
 import { EnrollmentsAdmin } from '@/features/admin/EnrollmentsAdmin';
@@ -82,7 +84,11 @@ function AuthenticatedApp() {
           <>
             <Route path="lesson-plans" element={<LessonPlans />} />
             <Route path="recording-sheets" element={<RecordingSheets />} />
+            <Route path="puzzles" element={<Puzzles />} />
           </>
+        )}
+        {effectiveRole === 'coach' && (
+          <Route path="today-sessions" element={<TodaysSessions />} />
         )}
         {effectiveRole === 'admin' && (
           <>
