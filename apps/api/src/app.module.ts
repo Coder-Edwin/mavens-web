@@ -25,6 +25,8 @@ import { CoursesModule } from './modules/courses/courses.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { LichessModule } from './modules/lichess/lichess.module';
 import { ClassroomModule } from './modules/classroom/classroom.module';
+import { LessonPlansModule } from './modules/lesson-plans/lesson-plans.module';
+import { RecordingSheetsModule } from './modules/recording-sheets/recording-sheets.module';
 
 @Module({
   imports: [
@@ -53,7 +55,9 @@ import { ClassroomModule } from './modules/classroom/classroom.module';
     CoursesModule,
     ReportsModule,
     LichessModule,
-    ClassroomModule
+    ClassroomModule,
+    LessonPlansModule,
+    RecordingSheetsModule
   ]
 })
 export class AppModule {}

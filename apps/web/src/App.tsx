@@ -13,6 +13,8 @@ import { LeadsAdmin } from '@/features/admin/LeadsAdmin';
 import { StudentsAdmin } from '@/features/admin/StudentsAdmin';
 import { MerchandiseAdmin } from '@/features/admin/MerchandiseAdmin';
 import { StudentTournaments } from '@/features/student/StudentTournaments';
+import { LessonPlans } from '@/features/coach/LessonPlans';
+import { RecordingSheets } from '@/features/coach/RecordingSheets';
 import { AnnouncementsAdmin } from '@/features/admin/AnnouncementsAdmin';
 import { SchoolGroupsAdmin } from '@/features/admin/SchoolGroupsAdmin';
 import { EnrollmentsAdmin } from '@/features/admin/EnrollmentsAdmin';
@@ -76,6 +78,12 @@ function AuthenticatedApp() {
         <Route path="classroom/:id" element={<ClassroomRoomPage />} />
         <Route path="learn" element={<MyCoursesPage />} />
         <Route path="learn/:courseId" element={<CoursePlayerPage />} />
+        {(effectiveRole === 'admin' || effectiveRole === 'coach') && (
+          <>
+            <Route path="lesson-plans" element={<LessonPlans />} />
+            <Route path="recording-sheets" element={<RecordingSheets />} />
+          </>
+        )}
         {effectiveRole === 'admin' && (
           <>
             <Route path="students" element={<StudentsAdmin />} />

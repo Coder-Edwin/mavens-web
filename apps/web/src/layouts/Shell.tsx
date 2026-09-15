@@ -12,6 +12,8 @@ const NAV_ITEMS: Record<EffectiveRole, { glyph: string; label: string; to?: stri
     { glyph: '♔', label: 'Overview', to: '/app' },
     { glyph: '♞', label: 'Coaches', to: '/app/coaches' },
     { glyph: '♟', label: 'Students', to: '/app/students' },
+    { glyph: '♗', label: 'Lesson Plans', to: '/app/lesson-plans' },
+    { glyph: '♜', label: 'Recording Sheets', to: '/app/recording-sheets' },
     { glyph: '♜', label: 'Tournaments', to: '/app/tournaments' },
     { glyph: '♘', label: 'Enrollments', to: '/app/enrollments' },
     { glyph: '♗', label: 'Placement queue', to: '/app/placements' },
@@ -36,9 +38,9 @@ const NAV_ITEMS: Record<EffectiveRole, { glyph: string; label: string; to?: stri
   coach: [
     { glyph: '♟', label: 'My Students', to: '/app' },
     { glyph: '♔', label: "Today's Sessions" },
-    { glyph: '♗', label: 'Lesson Plans' },
+    { glyph: '♗', label: 'Lesson Plans', to: '/app/lesson-plans' },
     { glyph: '♘', label: 'Puzzles' },
-    { glyph: '♜', label: 'Recording Sheets' },
+    { glyph: '♜', label: 'Recording Sheets', to: '/app/recording-sheets' },
     { glyph: '♞', label: 'Play', to: '/app/play' },
     { glyph: '♝', label: 'Analysis', to: '/app/analysis' },
     { glyph: '♞', label: 'Lichess TV', to: '/app/lichess' },
@@ -56,7 +58,7 @@ const NAV_ITEMS: Record<EffectiveRole, { glyph: string; label: string; to?: stri
     { glyph: '♗', label: 'Classroom', to: '/app/classroom' }
   ],
   parent: [
-    { glyph: '♔', label: 'Overview' },
+    { glyph: '♔', label: 'Overview', to: '/app' },
     { glyph: '♛', label: 'Payments' },
     { glyph: '♟', label: 'Progress' },
     { glyph: '♜', label: 'Tournaments' },
