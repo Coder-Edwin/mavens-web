@@ -27,6 +27,7 @@ import { LichessModule } from './modules/lichess/lichess.module';
 import { ClassroomModule } from './modules/classroom/classroom.module';
 import { LessonPlansModule } from './modules/lesson-plans/lesson-plans.module';
 import { RecordingSheetsModule } from './modules/recording-sheets/recording-sheets.module';
+import { BadgesModule } from './modules/badges/badges.module';
 
 @Module({
   imports: [
@@ -57,7 +58,8 @@ import { RecordingSheetsModule } from './modules/recording-sheets/recording-shee
     LichessModule,
     ClassroomModule,
     LessonPlansModule,
-    RecordingSheetsModule
+    RecordingSheetsModule,
+    BadgesModule
   ]
 })
 export class AppModule {}
