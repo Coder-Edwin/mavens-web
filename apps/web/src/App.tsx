@@ -20,6 +20,10 @@ import { TodaysSessions } from '@/features/coach/TodaysSessions';
 import { Badges } from '@/features/coach/Badges';
 import { StudentPuzzles } from '@/features/student/StudentPuzzles';
 import { StudentBadges } from '@/features/student/StudentBadges';
+import { ParentPayments } from '@/features/parent/ParentPayments';
+import { ParentTournaments } from '@/features/parent/ParentTournaments';
+import { ParentStore } from '@/features/parent/ParentStore';
+import { ParentProgress } from '@/features/parent/ParentProgress';
 import { AnnouncementsAdmin } from '@/features/admin/AnnouncementsAdmin';
 import { SchoolGroupsAdmin } from '@/features/admin/SchoolGroupsAdmin';
 import { EnrollmentsAdmin } from '@/features/admin/EnrollmentsAdmin';
@@ -126,6 +130,14 @@ function AuthenticatedApp() {
         )}
         {effectiveRole === 'student' && (
           <Route path="tournaments" element={<StudentTournaments />} />
+        )}
+        {effectiveRole === 'parent' && (
+          <>
+            <Route path="tournaments" element={<ParentTournaments />} />
+            <Route path="payments" element={<ParentPayments />} />
+            <Route path="store" element={<ParentStore />} />
+            <Route path="progress" element={<ParentProgress />} />
+          </>
         )}
         <Route path="*" element={<Navigate to="/app" replace />} />
       </Routes>

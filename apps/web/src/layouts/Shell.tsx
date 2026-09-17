@@ -62,10 +62,10 @@ const NAV_ITEMS: Record<EffectiveRole, { glyph: string; label: string; to?: stri
   ],
   parent: [
     { glyph: '♔', label: 'Overview', to: '/app' },
-    { glyph: '♛', label: 'Payments' },
-    { glyph: '♟', label: 'Progress' },
-    { glyph: '♜', label: 'Tournaments' },
-    { glyph: '♝', label: 'Store' }
+    { glyph: '♛', label: 'Payments', to: '/app/payments' },
+    { glyph: '♟', label: 'Progress', to: '/app/progress' },
+    { glyph: '♜', label: 'Tournaments', to: '/app/tournaments' },
+    { glyph: '♝', label: 'Store', to: '/app/store' }
   ]
 };
 

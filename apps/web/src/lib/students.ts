@@ -6,6 +6,7 @@ export interface StudentRecord {
   firstName: string;
   lastName: string;
   level: StudentLevel | null;
+  currentRating?: number | null;
   dateOfBirth: string | null;
   homeAddress: string | null;
   priorExperience: string | null;
